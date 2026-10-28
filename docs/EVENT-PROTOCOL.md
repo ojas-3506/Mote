@@ -10,10 +10,15 @@ zod, with the schema generating the other languages' types).
 | --- | --- | --- | --- |
 | Host | `wss://<relay>/ccr/v1/host` | host (outbound only) | host token in `Authorization` header |
 | Client | `wss://<relay>/ccr/v1/session/<sessionId>?after=<seq>` | phone | device token in `Authorization` header |
+| Discover | `GET <relay>/ccr/v1/sessions` | phone | device token in `Authorization` header |
 | Enroll | `POST <relay>/ccr/v1/pair` | phone | pairing code (one-time) |
 | Push sub | `POST <relay>/ccr/v1/push/subscribe` | phone | device token |
 
 Every connection is TLS. There is no plaintext fallback.
+
+**Discovery** returns the sessions the caller may connect to, so a phone
+doesn't have to be told a session id out of band. It is authenticated like
+everything else: the response contains the user's project paths.
 
 ## 2. Frame envelope
 
@@ -99,12 +104,42 @@ trusted instruction.** See SECURITY.md §5.
 | `permission.request` | `{ requestId, toolUseId, toolName, displayName, title, description, input, defaultToNo, suggestions }` |
 | `permission.resolved` | `{ requestId, behavior: 'allow' \| 'deny', by: 'phone' \| 'timeout' \| 'host' }` |
 
-`suggestions` is the SDK's `PermissionUpdate[]`, relayed verbatim. The client offers
-them as "always allow" choices and returns them unmodified — it never constructs
-permission rules itself.
+`suggestions` is the SDK's `PermissionUpdate[]`, relayed (after filtering — see
+below). The client offers them as "always allow" choices and returns them
+unmodified — it never constructs permission rules itself.
+
+The SDK's `PermissionUpdate` is a six-variant union, not a single shape:
+
+```ts
+type PermissionUpdate =
+  | { type: 'addRules' | 'replaceRules' | 'removeRules';
+      rules: { toolName: string; ruleContent?: string }[];
+      behavior: 'allow' | 'deny' | 'ask';
+      destination: 'userSettings' | 'projectSettings' | 'localSettings' | 'session' | 'cliArg' }
+  | { type: 'setMode'; mode: PermissionMode; destination: ... }
+  | { type: 'addDirectories' | 'removeDirectories'; directories: string[]; destination: ... };
+```
+
+Both `behavior` and `destination` matter. A rule written to `session` lasts for
+the session; one written to `projectSettings` outlives it on disk.
+
+**The host filters the suggestions before publishing them**, and filters the
+phone's answer again before handing it to the SDK. Only *session-scoped,
+additive* grants survive:
+
+- `addRules` with `destination: 'session'`.
+- `setMode` naming a mode a remote client may request — which excludes
+  `bypassPermissions`.
+
+`removeRules` and `replaceRules` are dropped: they can delete a *deny* rule,
+which loosens the user's configuration rather than tightening it.
+`addDirectories` is dropped: it widens the set of paths the agent may touch.
+When nothing survives, the client offers "allow once" and "deny" only, which
+is a correct outcome rather than a degraded one.
 
 `defaultToNo` **must** be honored by the client: open the prompt on the decline
-option, no one-key approve path.
+option, no one-key approve path. The host defaults it to `true` whenever the
+SDK does not say.
 
 ## 5. Control messages
 
@@ -117,6 +152,11 @@ the same `id`.
 | `prompt.send` | `{ text, attachments?, priority? }` | `priority` maps to `SDKUserMessage.priority` |
 | `session.interrupt` | `{}` | maps to `Query.interrupt()` |
 | `permission.resolve` | `{ requestId, behavior, updatedInput?, updatedPermissions?, message? }` | the only way to approve |
+
+A `permission.resolve` may carry `updatedInput`, but the host **ignores it**
+for remote clients. The SDK supports rewriting a tool's input, and a phone
+could rewrite `Bash(command: "ls")` into something else *after* the user read
+the prompt. The input that was shown must be the input that runs.
 | `session.model` | `{ model }` | maps to `Query.setModel()` |
 | `session.permission_mode` | `{ mode }` | maps to `Query.setPermissionMode()` |
 | `session.rename` | `{ title }` | maps to `renameSession()` |
@@ -177,6 +217,10 @@ install time, and never again). See SECURITY.md §2.
 | `host_offline` | host isn't connected to the relay |
 | `session_closed` | the Claude session ended |
 | `rate_limited` | too many requests |
+| `unknown_kind` | unknown `req.kind` |
+| `bad_request` | the request was malformed or semantically invalid |
+| `forbidden_mode` | the requested permission mode is not permitted from a remote client |
+| `internal` | an unexpected failure inside the host |
 
 ## 9. Forward compatibility
 

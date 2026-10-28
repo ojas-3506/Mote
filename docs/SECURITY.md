@@ -63,6 +63,16 @@ the host** — it routes frames and nothing else.
 - Device tokens are sent in the `Authorization` header, never in a query string, so
   they don't land in logs.
 
+**A token is required even with no relay in the picture.** The host daemon serves
+a phone directly on the LAN in its simplest deployment, and it still demands a
+bearer token on every connection. Without one, anyone on the café wifi can
+approve a tool call on the machine — and approving a tool call *is* running
+code. "It's only my home network" is not a control.
+
+The daemon hands the token to the phone in the **URL fragment** (`#t=...`).
+Fragments are never sent to the server, so the token doesn't appear in proxy
+logs, relay logs, or the phone's request history.
+
 ## 3. Pairing
 
 Pairing is the moment a phone is granted the ability to run code on someone's machine.
@@ -127,6 +137,28 @@ should look like. The client presents these and returns them **verbatim** as
 rule syntax is the CLI's business, and a client-generated rule could be broader than
 the user believes.
 
+**A phone approval can only create a session-scoped grant.** The host filters the
+suggestions before publishing them, and filters the phone's answer again before
+handing it to the SDK. Only these survive:
+
+- `addRules` with `destination: 'session'`.
+- `setMode` naming a mode a remote client may request — which excludes
+  `bypassPermissions`.
+
+Everything else is dropped, because the alternative is a phone tap writing a
+permanent rule into the user's `settings.json` or `projectSettings`, or granting
+the agent access to a directory tree:
+
+| Dropped | Why |
+| --- | --- |
+| `destination: 'userSettings' \| 'projectSettings' \| 'localSettings'` | a permanent edit to config, made by tapping a phone |
+| `removeRules`, `replaceRules` | can delete a *deny* rule — loosens, not tightens |
+| `addDirectories` | widens the set of paths the agent may touch |
+| `setMode: 'bypassPermissions'` | the agent can do anything the user can |
+
+When nothing survives the filter, the client offers "allow once" and "deny"
+only. That is a correct outcome, not a degraded one.
+
 ### 4.5 Untrusted names
 
 `ctx.mcpServer.name` for servers loaded from configuration is **untrusted text**.
@@ -143,6 +175,20 @@ influenced (a repo can contain a `CLAUDE.md` that says anything).
 
 `tool.call.input` is displayed, never interpreted. The client must not shell out, not
 render HTML from it, not turn a URL in it into a link that auto-fetches.
+
+### 4.7 The approved input is the input that runs
+
+The SDK lets a host rewrite a tool's input in its permission verdict
+(`updatedInput`). The host **ignores** `updatedInput` arriving from a remote
+client.
+
+Without this rule, a client could approve `Bash(command: "ls")` — read that
+prompt, tap Allow — and then rewrite the input to something else. The prompt
+would no longer describe what was approved, which makes the whole permission
+surface decorative. The input shown in the prompt must be the input that runs.
+
+A host may still rewrite input for its own local policy reasons; that is a
+different surface, and it isn't reachable from a phone.
 
 ## 5. Prompt injection is in scope
 
@@ -221,6 +267,11 @@ session transcript.
 The audit log must be exportable in a form a user can read. "Trust but verify" is the
 point.
 
+**The record is written before the verdict is delivered.** An approval that
+outruns its own audit entry defeats the purpose of the entry — if the machine
+dies in between, code ran that no record accounts for. The host writes the
+audit entry, then releases the verdict.
+
 ## 9. Abuse on a public relay
 
 A public relay is free compute and a free path to people's machines. Mitigations:
@@ -247,11 +298,15 @@ bounty once the permission flow has had external review.
 - [ ] Permission requests time out to deny; offline resolves to deny
 - [ ] Late/replayed verdicts are rejected
 - [ ] "Always allow" returns the SDK's suggestions unmodified
+- [ ] Remote "always allow" can only create a session-scoped grant
+- [ ] `updatedInput` from a remote client is ignored
+- [ ] `bypassPermissions` is not settable from any remote client
 - [ ] MCP server names are escaped and trust keys on `source`
 - [ ] All session-derived strings are escaped; no HTML rendering of tool input
 - [ ] Push notifications cannot approve anything
 - [ ] Tokens are hashed at rest, revocable, and never in query strings or logs
+- [ ] A token is required even in LAN-only deployments
 - [ ] The relay has frame size limits, rate limits, and executes nothing
 - [ ] Sandbox uses `failIfUnavailable: true`
-- [ ] Audit log is append-only and exportable
+- [ ] Audit log is append-only and exportable, and written before the verdict
 - [ ] Pairing produces a visible line on the host terminal

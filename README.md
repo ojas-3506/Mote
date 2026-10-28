@@ -3,8 +3,9 @@
 **An open, self-hostable mobile client for your Claude Code session.** Keep the agent and
 your code on your own machine; drive it from your phone over any network.
 
-> **Status: design phase.** Nothing here runs yet. This repo currently contains the
-> design docs, not an implementation.
+> **Status: the host daemon works.** `ccrd` owns a real Claude Code session, relays
+> tool approvals to a phone, and serves the PWA on the local network. The relay and
+> the phone client are next. See [docs/DESIGN.md](docs/DESIGN.md) for the plan.
 
 ---
 
@@ -56,6 +57,34 @@ whatever authentication and provider you already use.
    phone never loses the session.
 5. **Approval must be deliberate.** Approving a tool call *is* remote code execution.
    The UI is designed around that fact — see [docs/SECURITY.md](docs/SECURITY.md).
+
+## Try it
+
+```bash
+npm install
+npm run build
+
+# Start the daemon on your machine. It prints a URL to open on your phone.
+npx ccrd --cwd ~/projects/my-repo
+```
+
+```
+ccrd listening on http://192.168.1.24:8787
+  host      my-laptop (0213e0ae-c996-4bf3-a63a-7fd6e2bd566c)
+  claude    2.1.312   sdk 0.3.312
+  session   sess_my-repo-e14b24  /home/you/projects/my-repo
+
+  open on your phone:  http://192.168.1.24:8787/#t=<token>
+```
+
+The token travels in the URL *fragment*, which browsers never send to a server.
+The daemon requires it on every connection — on a home LAN as much as over the
+internet, because approving a tool call is running code.
+
+`node scripts/smoke.mjs` drives the whole thing end to end against a real
+Claude Code session.
+
+---
 
 ## Documentation
 

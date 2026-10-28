@@ -17,28 +17,6 @@ export const TimestampSchema = z.number().int().nonnegative();
 /** A tool input is arbitrary JSON. It is displayed, never interpreted. */
 export const ToolInputSchema = z.record(z.string(), z.unknown());
 
-/**
- * The SDK's `PermissionUpdate[]`, relayed verbatim.
- *
- * The client must never construct these itself — the rule syntax is the CLI's
- * business, and a client-generated rule could be broader than the user
- * believes. See SECURITY.md §4.4.
- */
-export const PermissionUpdateSchema = z.object({
-  type: z.literal('addRules'),
-  rules: z.array(
-    z.object({
-      toolName: z.string(),
-      ruleContent: z.string().optional(),
-    }),
-  ),
-});
-
-export type PermissionUpdate = z.infer<typeof PermissionUpdateSchema>;
-
-export const PrioritySchema = z.enum(['now', 'next', 'later']);
-export type Priority = z.infer<typeof PrioritySchema>;
-
 export const PermissionModeSchema = z.enum([
   'default',
   'acceptEdits',
@@ -62,6 +40,75 @@ export type RemotelySettableMode = (typeof REMOTELY_SETTABLE_MODES)[number];
 export function isRemotelySettableMode(mode: string): mode is RemotelySettableMode {
   return (REMOTELY_SETTABLE_MODES as readonly string[]).includes(mode);
 }
+
+/**
+ * The SDK's `PermissionUpdate[]`, relayed verbatim.
+ *
+ * The client must never construct these itself — the rule syntax is the CLI's
+ * business, and a client-generated rule could be broader than the user
+ * believes. See SECURITY.md §4.4.
+ *
+ * This mirrors `@anthropic-ai/claude-agent-sdk`'s `PermissionUpdate` exactly,
+ * which is a six-variant union. Every variant carries a `behavior` (whether
+ * the rule allows, denies, or re-prompts) and a `destination` (where the rule
+ * is written). Both matter: a rule written to `session` lasts for the
+ * session, one written to `projectSettings` outlives it on disk.
+ */
+export const PermissionRuleSchema = z.object({
+  toolName: z.string(),
+  ruleContent: z.string().optional(),
+});
+
+export const PermissionBehaviorSchema = z.enum(['allow', 'deny', 'ask']);
+
+export const PermissionUpdateDestinationSchema = z.enum([
+  'userSettings',
+  'projectSettings',
+  'localSettings',
+  'session',
+  'cliArg',
+]);
+
+export const PermissionUpdateSchema = z.discriminatedUnion('type', [
+  z.object({
+    type: z.literal('addRules'),
+    rules: z.array(PermissionRuleSchema),
+    behavior: PermissionBehaviorSchema,
+    destination: PermissionUpdateDestinationSchema,
+  }),
+  z.object({
+    type: z.literal('replaceRules'),
+    rules: z.array(PermissionRuleSchema),
+    behavior: PermissionBehaviorSchema,
+    destination: PermissionUpdateDestinationSchema,
+  }),
+  z.object({
+    type: z.literal('removeRules'),
+    rules: z.array(PermissionRuleSchema),
+    behavior: PermissionBehaviorSchema,
+    destination: PermissionUpdateDestinationSchema,
+  }),
+  z.object({
+    type: z.literal('setMode'),
+    mode: PermissionModeSchema,
+    destination: PermissionUpdateDestinationSchema,
+  }),
+  z.object({
+    type: z.literal('addDirectories'),
+    directories: z.array(z.string()),
+    destination: PermissionUpdateDestinationSchema,
+  }),
+  z.object({
+    type: z.literal('removeDirectories'),
+    directories: z.array(z.string()),
+    destination: PermissionUpdateDestinationSchema,
+  }),
+]);
+
+export type PermissionUpdate = z.infer<typeof PermissionUpdateSchema>;
+
+export const PrioritySchema = z.enum(['now', 'next', 'later']);
+export type Priority = z.infer<typeof PrioritySchema>;
 
 export const IdleReasonSchema = z.enum(['turn_complete', 'awaiting_permission', 'interrupted']);
 export type IdleReason = z.infer<typeof IdleReasonSchema>;

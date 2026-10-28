@@ -3,7 +3,9 @@ import { test } from 'node:test';
 import {
   EvtFrameSchema,
   FrameSchema,
+  PermissionUpdateSchema,
   PROTOCOL_VERSION,
+  filterRemotelyGrantable,
   isRemotelySettableMode,
   ok,
   fail,
@@ -99,13 +101,25 @@ test('a permission request carries defaultToNo and the SDK suggestions verbatim'
       description: 'Claude wants to run a command',
       input: { command: 'rm -rf build' },
       defaultToNo: true,
-      suggestions: [{ type: 'addRules', rules: [{ toolName: 'Bash' }] }],
+      suggestions: [
+        {
+          type: 'addRules',
+          rules: [{ toolName: 'Bash' }],
+          behavior: 'allow',
+          destination: 'session',
+        },
+      ],
     },
   });
   assert.equal(parsed.t, 'evt');
   assert.equal(parsed.data.defaultToNo, true);
   assert.deepEqual(parsed.data.suggestions, [
-    { type: 'addRules', rules: [{ toolName: 'Bash' }] },
+    {
+      type: 'addRules',
+      rules: [{ toolName: 'Bash' }],
+      behavior: 'allow',
+      destination: 'session',
+    },
   ]);
 });
 
@@ -140,4 +154,58 @@ test('bypassPermissions is not remotely settable', () => {
 test('a frame from an unknown protocol version is rejected', () => {
   const result = FrameSchema.safeParse({ v: 99, t: 'ping', ts: 1 });
   assert.equal(result.success, false);
+});
+
+test('every shape of the SDK permission update parses', () => {
+  // The SDK's PermissionUpdate is a six-variant union; the wire format has to
+  // carry all of them or a real suggestion gets dropped on the floor.
+  const variants = [
+    { type: 'addRules', rules: [{ toolName: 'Bash' }], behavior: 'allow', destination: 'session' },
+    { type: 'replaceRules', rules: [{ toolName: 'Bash' }], behavior: 'ask', destination: 'userSettings' },
+    { type: 'removeRules', rules: [{ toolName: 'Bash' }], behavior: 'deny', destination: 'session' },
+    { type: 'setMode', mode: 'plan', destination: 'session' },
+    { type: 'addDirectories', directories: ['/tmp'], destination: 'session' },
+    { type: 'removeDirectories', directories: ['/tmp'], destination: 'session' },
+  ];
+  for (const variant of variants) {
+    const result = PermissionUpdateSchema.safeParse(variant);
+    assert.equal(result.success, true, `failed on ${variant.type}`);
+  }
+});
+
+test('a suggestion missing its destination is rejected', () => {
+  const result = PermissionUpdateSchema.safeParse({
+    type: 'addRules',
+    rules: [{ toolName: 'Bash' }],
+    behavior: 'allow',
+  });
+  assert.equal(result.success, false);
+});
+
+test('only session-scoped, additive suggestions survive remote filtering', () => {
+  const suggestions = [
+    { type: 'addRules', rules: [{ toolName: 'Bash' }], behavior: 'allow', destination: 'session' },
+    { type: 'addRules', rules: [{ toolName: 'Bash' }], behavior: 'allow', destination: 'userSettings' },
+    { type: 'removeRules', rules: [{ toolName: 'Bash' }], behavior: 'deny', destination: 'session' },
+    { type: 'replaceRules', rules: [{ toolName: 'Bash' }], behavior: 'deny', destination: 'session' },
+    { type: 'addDirectories', directories: ['/'], destination: 'session' },
+    { type: 'setMode', mode: 'plan', destination: 'session' },
+    { type: 'setMode', mode: 'bypassPermissions', destination: 'session' },
+  ] as const;
+
+  const kept = filterRemotelyGrantable(suggestions);
+
+  assert.deepEqual(
+    kept.map((u) => u.type),
+    ['addRules', 'setMode'],
+  );
+  assert.equal(kept[0]?.destination, 'session');
+  assert.equal((kept[1] as { mode: string }).mode, 'plan');
+});
+
+test('a suggestion that would grant everything is never offered remotely', () => {
+  const kept = filterRemotelyGrantable([
+    { type: 'setMode', mode: 'bypassPermissions', destination: 'session' },
+  ] as const);
+  assert.deepEqual(kept, []);
 });

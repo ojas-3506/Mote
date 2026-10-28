@@ -9,5 +9,6 @@
 export * from './version.js';
 export * from './errors.js';
 export * from './events.js';
+export * from './suggestions.js';
 export * from './control.js';
 export * from './frames.js';

@@ -135,8 +135,13 @@ export class FrameConnection {
 }
 
 export interface WebSocketServerOptions {
-  /** Path to accept upgrades on. */
-  path: string;
+  /** Exact path to accept upgrades on. */
+  path?: string;
+  /**
+   * Path prefix to accept upgrades on. Use this when the connection carries
+   * an identifier in the path, e.g. `/ccr/v1/session/<sessionId>`.
+   */
+  pathPrefix?: string;
   /** Maximum inbound message size. */
   maxFrameBytes?: number;
   pingIntervalMs?: number;
@@ -163,7 +168,15 @@ export function attachWebSocketServer(
   httpServer.on('upgrade', (request: IncomingMessage, socket: Duplex, head: Buffer) => {
     const url = new URL(request.url ?? '/', `http://${request.headers.host ?? 'localhost'}`);
 
-    if (url.pathname !== options.path) {
+    const matches =
+      options.path !== undefined
+        ? url.pathname === options.path
+        : options.pathPrefix !== undefined
+          ? url.pathname === options.pathPrefix ||
+            url.pathname.startsWith(`${options.pathPrefix}/`)
+          : false;
+
+    if (!matches) {
       socket.write('HTTP/1.1 404 Not Found\r\n\r\n');
       socket.destroy();
       return;

@@ -48,15 +48,16 @@ The work is split so that each phase ends in something demonstrable.
 | Phase | Delivers | Status |
 | --- | --- | --- |
 | 1 | `protocol` + `core` — the wire contract and the transport plumbing | **done** |
-| 2 | `host` — `ccrd` owns a Claude Code session, relays approvals, serves a phone directly | next |
-| 3 | `relay` — pairing, device/host tokens, host↔client routing | |
+| 2 | `host` — `ccrd` owns a Claude Code session, relays approvals, serves a phone directly | **done** |
+| 3 | `relay` — pairing, device/host tokens, host↔client routing | next |
 | 4 | `app` — the PWA: chat, tool rows, diffs, the permission sheet | |
 | 5 | `cli` + packaging — `ccr` command, install script, Docker | |
 | 6 | Hardening — threat-model pass, release checklist, docs | |
 
 Phase 2 deliberately skips the relay: the host serves a phone directly on the
 LAN, which is enough to validate the permission sheet against a real human
-tapping on a real screen.
+tapping on a real screen. `scripts/smoke.mjs` drives the whole thing
+end to end against a real Claude Code session.
 
 ## Architecture
 
@@ -99,19 +100,25 @@ project's whole reason to exist. Each one has a test.
    `PermissionUpdate[]` suggestions go to the client and come back unmodified.
    The client never builds permission rule strings — rule syntax is the CLI's
    business, and a client-written rule can be broader than the user believes.
+   A phone approval may only create a **session-scoped** grant: rules written
+   to disk, rule removal, and directory grants are filtered out.
 5. **`bypassPermissions` is not remotely settable.** The protocol has no way to
    express it; the host rejects it from any client.
-6. **Untrusted text stays untrusted.** MCP server names, tool names, file
+6. **The approved input is the input that runs.** The host ignores
+   `updatedInput` from a remote client — otherwise the prompt no longer
+   describes what was approved.
+7. **Untrusted text stays untrusted.** MCP server names, tool names, file
    paths, diffs, and command output all originate in a repo the user may not
    control. Escape them. Trust keys on `mcpServer.source`, never on the name
    or the `mcp__` prefix.
-7. **Tool input is displayed, never interpreted.** No HTML rendering, no
+8. **Tool input is displayed, never interpreted.** No HTML rendering, no
    shelling out, no auto-fetching a URL that appears in tool input.
-8. **The relay executes nothing.** It parses JSON with a size limit and routes
+9. **The relay executes nothing.** It parses JSON with a size limit and routes
    frames. No eval, no plugin loading, no deserialization of anything else.
-9. **Credentials stay hashed and out of logs.** Tokens are stored hashed at the
+10. **Credentials stay hashed and out of logs.** Tokens are stored hashed at the
    relay, sent in `Authorization` (never a query string), and prompt content
-   never reaches a log file.
+   never reaches a log file. A token is required even with no relay in the
+   picture — "it's only my home network" is not a control.
 
 ## Conventions
 
