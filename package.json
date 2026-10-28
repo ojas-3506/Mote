@@ -1,0 +1,36 @@
+{
+  "name": "ccr-workspace",
+  "private": true,
+  "version": "0.1.0",
+  "description": "ccr — an open, self-hostable mobile client for your Claude Code session",
+  "type": "module",
+  "workspaces": [
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "clean": "tsc -b --clean",
+    "typecheck": "tsc -b --noEmit",
+    "dev": "concurrently -n host,app -c cyan,magenta \"npm:dev:host\" \"npm:dev:app\"",
+    "dev:host": "tsx watch packages/host/src/daemon.ts",
+    "dev:app": "vite --config packages/app/vite.config.ts",
+    "start": "node packages/cli/dist/index.js",
+    "test": "tsx --test packages/*/test/*.test.ts",
+    "lint": "biome check packages",
+    "format": "biome format --write packages"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "@types/react": "^19.0.2",
+    "@types/react-dom": "^19.0.2",
+    "@types/ws": "^8.5.13",
+    "@vitejs/plugin-react": "^4.3.4",
+    "concurrently": "^9.1.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.5"
+  }
+}

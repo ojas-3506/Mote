@@ -1,0 +1,27 @@
+{
+  "name": "@ccr/core",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Server-side machinery shared by the host daemon and the relay: event log, session streams, pending permission requests, frame connections.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc -b",
+    "typecheck": "tsc -b --noEmit"
+  },
+  "dependencies": {
+    "@ccr/protocol": "*",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/ws": "^8.5.13"
+  }
+}
