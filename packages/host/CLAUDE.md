@@ -1,6 +1,6 @@
-# @ccr/host
+# @mote/host
 
-`ccrd` — the daemon that owns the Claude Code session on the user's machine
+`moted` — the daemon that owns the Claude Code session on the user's machine
 and serves it to a phone.
 
 This is the only package that talks to the Agent SDK. Everything the phone
@@ -13,7 +13,7 @@ sees comes from here.
 | `identity.ts` | the host id and its bearer token |
 | `session.ts` | one Claude Code session — **the permission flow lives here** |
 | `session-manager.ts` | the set of sessions, one per workspace |
-| `sdk-events.ts` | SDK messages → ccr events |
+| `sdk-events.ts` | SDK messages → Mote events |
 | `server.ts` | HTTP + WebSocket, session discovery, control routing |
 | `audit.ts` | the append-only approval log |
 | `versions.ts` | the CLI and SDK versions the host reports |
@@ -40,7 +40,7 @@ the bundled version, which is the one that actually runs.
 
 ## The permission flow
 
-This is the part of ccr that can run code on someone's machine. The rules
+This is the part of Mote that can run code on someone's machine. The rules
 below are enforced in `session.ts` and covered by `test/host.test.ts`.
 
 **`defaultToNo` defaults to `true`.** When the SDK doesn't say, assume the ask
@@ -50,7 +50,7 @@ per request — it is not a global setting.
 **Suggestions are filtered twice.** The SDK's `suggestions` is a
 privilege-escalation surface: it can contain a `setMode` naming
 `bypassPermissions`, or an `addRules` that writes a permanent rule to the
-user's settings. `filterRemotelyGrantable` (in `@ccr/protocol`) keeps only
+user's settings. `filterRemotelyGrantable` (in `@mote/protocol`) keeps only
 session-scoped, additive grants. It runs when the request is published **and
 again** when the phone's answer comes back, because the protocol allows a
 client to send any `PermissionUpdate` shape.
@@ -131,7 +131,7 @@ and handed to the phone in the **URL fragment** (`#t=...`), which browsers
 never send to the server. It must not appear in a query string, a log line, or
 an `Authorization` URL.
 
-`CCR_TOKEN` is the better way to supply one than `--token`: a token on the
+`MOTE_TOKEN` is the better way to supply one than `--token`: a token on the
 command line is visible to every local user with `ps`.
 
 The comparison hashes both sides first. `timingSafeEqual` needs two buffers of
@@ -141,9 +141,9 @@ token's length through the response time.
 **A browser cannot set headers on a WebSocket**, so a phone cannot use the
 `Authorization` header on the session socket — and putting the token in the
 URL is exactly what the rule above forbids. `bearerToken()` (in
-`@ccr/protocol`) therefore also accepts the token in the `Sec-WebSocket-
-Protocol` header, as a second entry after `ccr-v1`. `attachWebSocketServer`
-selects `ccr-v1` and never echoes the token back — a browser that offered
+`@mote/protocol`) therefore also accepts the token in the `Sec-WebSocket-
+Protocol` header, as a second entry after `mote-v1`. `attachWebSocketServer`
+selects `mote-v1` and never echoes the token back — a browser that offered
 subprotocols fails the connection if the server selects none.
 
 ## Nothing in a request path may reject
@@ -156,7 +156,7 @@ Both handlers in `server.ts` are wrapped. The audit appends in the control
 handler go through `#audit()`, which catches its own failures. If you add a
 call that is fire-and-forget, give it the same treatment.
 
-The discovery endpoint (`GET /ccr/v1/sessions`) is authenticated too: it
+The discovery endpoint (`GET /mote/v1/sessions`) is authenticated too: it
 reveals the user's project paths.
 
 ## Testing

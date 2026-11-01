@@ -347,7 +347,7 @@ export type EvtFrame = z.infer<typeof EvtFrameSchema>;
 export type EventType = EvtFrame['type'];
 
 /** An event without its transport envelope — what the host produces. */
-export type CcrEvent = {
+export type MoteEvent = {
   [K in EventType]: Pick<Extract<EvtFrame, { type: K }>, 'type' | 'data'>;
 }[EventType];
 

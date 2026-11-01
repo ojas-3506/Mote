@@ -1,4 +1,4 @@
-# @ccr/app
+# @mote/app
 
 The PWA. The only thing that runs on the phone.
 
@@ -20,7 +20,7 @@ approvals — it does not compute, and it does not decide.
 
 It never knows where the host is. In production the host serves this bundle,
 so its origin *is* the host. In development Vite runs on its own port and
-forwards `/ccr/v1/*` to the daemon.
+forwards `/mote/v1/*` to the daemon.
 
 That means the app code is identical in both modes, and there is no "which
 host am I talking to?" setting to get wrong on a phone.
@@ -36,8 +36,8 @@ it in `sessionStorage` so a reload doesn't lose it. It dies with the tab.
 
 **A browser cannot set headers on a WebSocket.** The host wants the token in
 `Authorization`, and the platform gives a phone no way to do that. So the
-client offers it as a WebSocket *subprotocol* — `ccr-v1` and the token as two
-entries — and the server selects `ccr-v1` and reads the token from the second.
+client offers it as a WebSocket *subprotocol* — `mote-v1` and the token as two
+entries — and the server selects `mote-v1` and reads the token from the second.
 Both are headers; neither puts the token in a URL, where it would be written
 to access logs by anything in the path.
 

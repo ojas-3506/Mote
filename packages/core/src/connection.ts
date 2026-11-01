@@ -1,12 +1,12 @@
 import type { IncomingMessage, Server as HttpServer } from 'node:http';
 import type { Duplex } from 'node:stream';
 import { WebSocket, WebSocketServer } from 'ws';
-import { WS_PROTOCOL, safeParseFrame, type Frame } from '@ccr/protocol';
+import { WS_PROTOCOL, safeParseFrame, type Frame } from '@mote/protocol';
 
 /**
  * A JSON text-frame connection.
  *
- * Both ends of a ccr link — phone and host — speak the same envelope, so the
+ * Both ends of a Mote link — phone and host — speak the same envelope, so the
  * framing rules live here once: a size limit, a parse-failure policy, and a
  * keepalive that reaps half-open sockets.
  */
@@ -139,7 +139,7 @@ export interface WebSocketServerOptions {
   path?: string;
   /**
    * Path prefix to accept upgrades on. Use this when the connection carries
-   * an identifier in the path, e.g. `/ccr/v1/session/<sessionId>`.
+   * an identifier in the path, e.g. `/mote/v1/session/<sessionId>`.
    */
   pathPrefix?: string;
   /** Maximum inbound message size. */

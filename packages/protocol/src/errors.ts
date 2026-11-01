@@ -46,4 +46,4 @@ export const ErrorSchema = z.object({
   message: z.string(),
 });
 
-export type CcrError = z.infer<typeof ErrorSchema>;
+export type MoteError = z.infer<typeof ErrorSchema>;

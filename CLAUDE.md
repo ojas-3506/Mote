@@ -1,4 +1,4 @@
-# ccr — Claude Code Remote
+# Mote — Claude Code Remote
 
 An open, self-hostable mobile client for your Claude Code session. The agent,
 your code, and your credentials stay on your machine; the phone is a viewer
@@ -13,10 +13,10 @@ That document is the product, not a footnote.
 packages/
   protocol/   the wire format — zod schemas, frames, events. Source of truth.
   core/       server-side machinery: event log, fan-out, pending approvals.
-  host/       ccrd — owns the Claude Code session via the Agent SDK.
+  host/       moted — owns the Claude Code session via the Agent SDK.
   app/        the PWA (React + Vite).
   relay/      the WebSocket relay: pairing, tokens, host↔client routing.
-  cli/        ccr — install, pair, inspect.
+  cli/        mote — install, pair, inspect.
 docs/
   DESIGN.md          architecture, SDK integration, milestones.
   EVENT-PROTOCOL.md  the wire format, in prose.
@@ -49,10 +49,10 @@ The work is split so that each phase ends in something demonstrable.
 | Phase | Delivers | Status |
 | --- | --- | --- |
 | 1 | `protocol` + `core` — the wire contract and the transport plumbing | **done** |
-| 2 | `host` — `ccrd` owns a Claude Code session, relays approvals, serves a phone directly | **done** |
+| 2 | `host` — `moted` owns a Claude Code session, relays approvals, serves a phone directly | **done** |
 | 3 | `relay` — pairing, device/host tokens, host↔client routing | next |
 | 4 | `app` — the PWA: chat, tool rows, diffs, the permission sheet | **started** — the transport works end to end |
-| 5 | `cli` + packaging — `ccr` command, install script, Docker | |
+| 5 | `cli` + packaging — `mote` command, install script, Docker | |
 | 6 | Hardening — threat-model pass, release checklist, docs | |
 
 Phase 2 deliberately skips the relay: the host serves a phone directly on the
@@ -72,7 +72,7 @@ There is deliberately no approve button in the app yet — see
 
 ```
 ┌──────────────────┐        WSS          ┌──────────────┐        WSS          ┌────────────────────┐
-│  Phone (PWA)    │◄────────────────────►│    Relay     │◄────────────────────►│  Host (ccrd)       │
+│  Phone (PWA)    │◄────────────────────►│    Relay     │◄────────────────────►│  Host (moted)       │
 │  chat + approvals│     events + cursor  │  session reg │     events + control │  Agent SDK         │
 └──────────────────┘                       │  event log   │                     │  your repo         │
                                            │  push        │                     │  your credentials  │
@@ -81,7 +81,7 @@ There is deliberately no approve button in the app yet — see
 
 Three properties carry the design:
 
-1. **The host dials out.** `ccrd` opens an outbound WebSocket. Nothing connects
+1. **The host dials out.** `moted` opens an outbound WebSocket. Nothing connects
    *in* to the user's machine, so there is no port forwarding and no NAT
    traversal.
 2. **The relay is a pipe.** It sequences events, logs them, fans them out, and

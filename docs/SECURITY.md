@@ -2,7 +2,7 @@
 
 **Read this before implementing anything that touches permissions.**
 
-ccr lets a phone approve tool calls in a Claude Code session running on someone's
+Mote lets a phone approve tool calls in a Claude Code session running on someone's
 machine. That is remote code execution by proxy. A single mistaken tap on a phone can
 run `rm -rf`, push to a production branch, or exfiltrate an SSH key. The rest of this
 project is a convenience; this section is the product.
@@ -67,7 +67,7 @@ the host** — it routes frames and nothing else.
 way to put an `Authorization` header on a WebSocket handshake, and the
 alternative — the token in the URL — is exactly what the rule above forbids.
 So the token travels in the `Sec-WebSocket-Protocol` header instead, as a
-second entry after `ccr-v1`. The server selects only `ccr-v1`, so the token is
+second entry after `mote-v1`. The server selects only `mote-v1`, so the token is
 never echoed back.
 
 Both mechanisms are headers. Neither puts a token in a URL, where it would be
@@ -204,10 +204,10 @@ different surface, and it isn't reachable from a phone.
 
 Claude Code executes instructions from files in the repository. A hostile repo — or a
 hostile `CLAUDE.md`, issue comment, or web page Claude fetched — can try to get the
-agent to take actions. This is inherent to the agent harness, not something ccr
+agent to take actions. This is inherent to the agent harness, not something Mote
 introduces.
 
-What ccr can and must do:
+What Mote can and must do:
 
 - Never make approval *easier* than the terminal client would.
 - Show the full tool input in the permission prompt, not a friendly summary — a

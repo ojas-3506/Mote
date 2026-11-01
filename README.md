@@ -1,9 +1,9 @@
-# ccr — Claude Code Remote
+# Mote — Claude Code Remote
 
 **An open, self-hostable mobile client for your Claude Code session.** Keep the agent and
 your code on your own machine; drive it from your phone over any network.
 
-> **Status: the host daemon works, and the phone can connect.** `ccrd` owns a real
+> **Status: the host daemon works, and the phone can connect.** `moted` owns a real
 > Claude Code session, relays tool approvals, and serves the PWA on the local
 > network. The app's transport is done end to end. The chat view and the
 > permission sheet are next — see [docs/DESIGN.md](docs/DESIGN.md) for the plan.
@@ -30,7 +30,7 @@ Claude Code ships **Remote Control** (`claude remote-control`), which connects
 claude.ai/code and the Claude mobile app to a local session. It's excellent — and it
 excludes a large group of users:
 
-| Setup | Remote Control | Channels | **ccr** |
+| Setup | Remote Control | Channels | **Mote** |
 | --- | --- | --- | --- |
 | claude.ai subscription (Pro/Max) | ✅ | ✅ | ✅ |
 | Anthropic Console API key | ❌ | ✅ | ✅ |
@@ -44,10 +44,10 @@ excludes a large group of users:
 Remote Control also requires a claude.ai subscription, stores the transcript on
 Anthropic servers while connected, and offers no public API to build on.
 
-**ccr is for everyone Remote Control leaves out**, and for anyone who wants their own
+**Mote is for everyone Remote Control leaves out**, and for anyone who wants their own
 infrastructure instead of someone else's. If you have a subscription and don't mind
 Anthropic's transport, use Remote Control — it's the better default and we say so in
-our docs. ccr runs the CLI **locally** and only relays events, so it works with
+our docs. Mote runs the CLI **locally** and only relays events, so it works with
 whatever authentication and provider you already use.
 
 ## Design principles
@@ -70,11 +70,11 @@ npm install
 npm run build
 
 # Start the daemon on your machine. It prints a URL to open on your phone.
-npx ccrd --cwd ~/projects/my-repo
+npx moted --cwd ~/projects/my-repo
 ```
 
 ```
-ccrd listening on http://192.168.1.24:8787
+moted listening on http://192.168.1.24:8787
   host      my-laptop (0213e0ae-c996-4bf3-a63a-7fd6e2bd566c)
   claude    2.1.312   sdk 0.3.312
   session   sess_my-repo-e14b24  /home/you/projects/my-repo
@@ -95,7 +95,7 @@ Claude Code session.
 npm run dev      # the daemon on :8787 and the Vite dev server on :5173
 ```
 
-The app always talks to its own origin, so the dev server proxies `/ccr/v1/*`
+The app always talks to its own origin, so the dev server proxies `/mote/v1/*`
 to the daemon and the app code is the same in both modes. Open
 `http://<your-lan-ip>:5173/#t=<token>` — the token is the same one the daemon
 printed.
@@ -122,10 +122,10 @@ that apply inside it.
 packages/
   protocol/   shared event schema + zod validation (the source of truth)
   core/       the event log, fan-out, pending approvals
-  host/       ccrd — the daemon that owns the Claude Code session
+  host/       moted — the daemon that owns the Claude Code session
   app/        the PWA (React + Vite)
   relay/      the WebSocket relay, event log, and push dispatch   ← next
-  cli/        ccr — install, pair, inspect
+  cli/        mote — install, pair, inspect
 ```
 
 The dependency graph is a straight line: `protocol` ← `core` ← {`host`,

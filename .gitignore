@@ -9,7 +9,7 @@ build/
 
 # The host's data directory.
 #
-# Not hypothetical: `ccrd --data-dir .` puts the bearer token in
+# Not hypothetical: `moted --data-dir .` puts the bearer token in
 # `host.json` and every session's full transcript — prompts, tool input,
 # command output — in `sessions/`. None of that belongs in a repository.
 host.json

@@ -6,15 +6,15 @@ import {
   isRemotelySettableMode,
   type PermissionUpdate,
   type Priority,
-} from '@ccr/protocol';
-import { PendingRequests, type Logger, type SessionStream, type Verdict, type VerdictSource } from '@ccr/core';
+} from '@mote/protocol';
+import { PendingRequests, type Logger, type SessionStream, type Verdict, type VerdictSource } from '@mote/core';
 import { AuditLog, hashInput } from './audit.js';
 import { SdkEventMapper } from './sdk-events.js';
 
 /**
  * One Claude Code session, owned by the host.
  *
- * The session is the only thing in ccr that talks to the Agent SDK. It turns
+ * The session is the only thing in Mote that talks to the Agent SDK. It turns
  * SDK messages into protocol events, accepts prompts from a phone, and — the
  * part that matters — relays permission requests to the phone and waits for a
  * verdict.

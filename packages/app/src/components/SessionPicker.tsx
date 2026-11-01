@@ -1,4 +1,4 @@
-import type { SessionList, SessionSummary } from '@ccr/protocol';
+import type { SessionList, SessionSummary } from '@mote/protocol';
 
 /**
  * The sessions this host offers.

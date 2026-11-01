@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { basename } from 'node:path';
-import type { SessionSummary } from '@ccr/protocol';
-import type { Logger, SessionStream } from '@ccr/core';
+import type { SessionSummary } from '@mote/protocol';
+import type { Logger, SessionStream } from '@mote/core';
 import type { AuditLog } from './audit.js';
 import { Session } from './session.js';
 import type { WorkspaceConfig } from './config.js';
@@ -13,7 +13,7 @@ import type { WorkspaceConfig } from './config.js';
  * workspace path so it survives a restart — a phone that bookmarked a session
  * reconnects to the same one.
  *
- * `SessionSummary` itself is defined in `@ccr/protocol`: the phone parses the
+ * `SessionSummary` itself is defined in `@mote/protocol`: the phone parses the
  * same shape, and it is a wire shape like any other.
  */
 

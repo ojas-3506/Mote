@@ -61,7 +61,7 @@ async function startFakeHost(): Promise<FakeHost> {
   const wss = new WebSocketServer({
     server: httpServer,
     // The same rule the host uses: select the protocol, never the token.
-    handleProtocols: (protocols) => (protocols.has('ccr-v1') ? 'ccr-v1' : false),
+    handleProtocols: (protocols) => (protocols.has('mote-v1') ? 'mote-v1' : false),
   });
 
   const urls: string[] = [];

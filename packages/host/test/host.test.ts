@@ -6,8 +6,8 @@ import { join } from 'node:path';
 import { test } from 'node:test';
 import type { SDKMessage, SDKUserMessage } from '@anthropic-ai/claude-agent-sdk';
 import type { Options, Query } from '@anthropic-ai/claude-agent-sdk';
-import { MemoryEventLog, SessionStream, silentLogger } from '@ccr/core';
-import type { StoredEvent } from '@ccr/core';
+import { MemoryEventLog, SessionStream, silentLogger } from '@mote/core';
+import type { StoredEvent } from '@mote/core';
 import { AuditLog, hashInput } from '../src/audit.js';
 import { parseArgs } from '../src/config.js';
 import { HostServer } from '../src/server.js';
@@ -15,7 +15,7 @@ import { SessionManager, sessionIdForPath } from '../src/session-manager.js';
 import { Session, type QueryFactory } from '../src/session.js';
 
 /**
- * The permission flow is the part of ccr that can run code on someone's
+ * The permission flow is the part of Mote that can run code on someone's
  * machine. These tests drive it end to end with a fake SDK, so the rules are
  * checked without spawning a real Claude Code process.
  */
@@ -65,7 +65,7 @@ interface Harness {
 }
 
 async function harness(overrides: Partial<Parameters<typeof makeSession>[0]> = {}): Promise<Harness> {
-  const dir = await mkdtemp(join(tmpdir(), 'ccr-host-test-'));
+  const dir = await mkdtemp(join(tmpdir(), 'mote-host-test-'));
   const log = new MemoryEventLog();
   const stream = new SessionStream(log);
   const audit = new AuditLog(join(dir, 'audit.log'));
@@ -485,7 +485,7 @@ async function serverHarness(serveApp = true): Promise<{
   port: number;
   cleanup: () => Promise<void>;
 }> {
-  const dir = await mkdtemp(join(tmpdir(), 'ccr-host-test-'));
+  const dir = await mkdtemp(join(tmpdir(), 'mote-host-test-'));
   const stream = new SessionStream(new MemoryEventLog());
   const audit = new AuditLog(join(dir, 'audit.log'));
   const sessions = new SessionManager({
@@ -543,7 +543,7 @@ test('a malformed session id in the WebSocket path does not kill the daemon', as
     await new Promise<void>((resolve) => {
       const socket = connect(h.port, '127.0.0.1', () => {
         socket.write(
-          'GET /ccr/v1/session/%ZZ?after=0 HTTP/1.1\r\n' +
+          'GET /mote/v1/session/%ZZ?after=0 HTTP/1.1\r\n' +
             'Host: 127.0.0.1\r\n' +
             'Authorization: Bearer test-token\r\n' +
             'Upgrade: websocket\r\n' +

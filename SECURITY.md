@@ -7,7 +7,7 @@
 Email **mexter.dolester@gmail.com** with:
 
 - what the issue is and what an attacker gets,
-- the version of `ccrd`, the Agent SDK, and the Claude Code CLI you were on,
+- the version of `moted`, the Agent SDK, and the Claude Code CLI you were on,
 - how to reproduce it.
 
 You will get an acknowledgement within a few days. If a fix takes longer than
@@ -18,7 +18,7 @@ publicly. We will credit you unless you would rather we didn't.
 
 ## What this project is
 
-ccr lets a phone approve tool calls in a Claude Code session running on
+Mote lets a phone approve tool calls in a Claude Code session running on
 someone's machine. **Tapping "Allow" on your phone is remote code execution by
 proxy.** That makes the permission surface the product, not a feature of it.
 

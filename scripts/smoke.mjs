@@ -1,7 +1,7 @@
 /**
  * End-to-end smoke test.
  *
- * Starts `ccrd` on the loopback interface, connects a client, sends a prompt,
+ * Starts `moted` on the loopback interface, connects a client, sends a prompt,
  * and prints every event that comes back. It runs a real Claude Code session,
  * so it needs working credentials and it costs a token or two.
  *
@@ -16,15 +16,15 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import WebSocket from 'ws';
 
-const PORT = Number(process.env.CCR_SMOKE_PORT ?? 8899);
-const TOKEN = process.env.CCR_SMOKE_TOKEN ?? 'smoke-token';
-const PROMPT = process.env.CCR_SMOKE_PROMPT ?? 'Reply with exactly: ccr-smoke-ok';
-const TIMEOUT_MS = Number(process.env.CCR_SMOKE_TIMEOUT ?? 60_000);
+const PORT = Number(process.env.MOTE_SMOKE_PORT ?? 8899);
+const TOKEN = process.env.MOTE_SMOKE_TOKEN ?? 'smoke-token';
+const PROMPT = process.env.MOTE_SMOKE_PROMPT ?? 'Reply with exactly: mote-smoke-ok';
+const TIMEOUT_MS = Number(process.env.MOTE_SMOKE_TIMEOUT ?? 60_000);
 
 const repoRoot = new URL('..', import.meta.url).pathname;
-const workspace = join(mkdtempSync(join(tmpdir(), 'ccr-smoke-ws-')), 'repo');
+const workspace = join(mkdtempSync(join(tmpdir(), 'mote-smoke-ws-')), 'repo');
 mkdirSync(workspace, { recursive: true });
-const dataDir = mkdtempSync(join(tmpdir(), 'ccr-smoke-data-'));
+const dataDir = mkdtempSync(join(tmpdir(), 'mote-smoke-data-'));
 
 const daemon = spawn(
   'npx',
@@ -38,7 +38,7 @@ const daemon = spawn(
   ],
   // The token goes through the environment, not `--token`: a token on the
   // command line is visible to every local user with `ps`.
-  { cwd: repoRoot, env: { ...process.env, CCR_TOKEN: TOKEN }, stdio: ['ignore', 'pipe', 'pipe'] },
+  { cwd: repoRoot, env: { ...process.env, MOTE_TOKEN: TOKEN }, stdio: ['ignore', 'pipe', 'pipe'] },
 );
 
 let sessionId = null;
@@ -66,7 +66,7 @@ daemon.stderr.on('data', (buf) => {
 });
 
 function connect() {
-  const ws = new WebSocket(`ws://127.0.0.1:${PORT}/ccr/v1/session/${sessionId}?after=0`, {
+  const ws = new WebSocket(`ws://127.0.0.1:${PORT}/mote/v1/session/${sessionId}?after=0`, {
     headers: { Authorization: `Bearer ${TOKEN}` },
   });
 

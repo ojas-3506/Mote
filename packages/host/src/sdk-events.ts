@@ -6,10 +6,10 @@ import type {
   SDKSystemMessage,
   SDKUserMessage,
 } from '@anthropic-ai/claude-agent-sdk';
-import type { CcrEvent } from '@ccr/protocol';
+import type { MoteEvent } from '@mote/protocol';
 
 /**
- * Translate the Agent SDK's message stream into ccr events.
+ * Translate the Agent SDK's message stream into Mote events.
  *
  * The SDK's shapes are wide and versioned independently of ours, so this
  * mapper is deliberately defensive: anything it doesn't recognise is dropped
@@ -33,7 +33,7 @@ type ToolResultBlock = {
 };
 
 export interface SdkEventMapperOptions {
-  /** The ccr session id these events belong to. */
+  /** The Mote session id these events belong to. */
   sessionId: string;
   /** The host's id, echoed in `session.started`. */
   hostId: string;
@@ -52,7 +52,7 @@ export class SdkEventMapper {
     this.#options = options;
   }
 
-  map(message: SDKMessage): CcrEvent[] {
+  map(message: SDKMessage): MoteEvent[] {
     switch (message.type) {
       case 'system':
         return this.#mapSystem(message);
@@ -69,7 +69,7 @@ export class SdkEventMapper {
     }
   }
 
-  #mapSystem(message: SDKMessage): CcrEvent[] {
+  #mapSystem(message: SDKMessage): MoteEvent[] {
     // Several SDK message kinds share `type: 'system'`, so the subtype is
     // what actually identifies the init message.
     const system = message as SDKSystemMessage;
@@ -90,8 +90,8 @@ export class SdkEventMapper {
     ];
   }
 
-  #mapAssistant(message: SDKAssistantMessage): CcrEvent[] {
-    const events: CcrEvent[] = [];
+  #mapAssistant(message: SDKAssistantMessage): MoteEvent[] {
+    const events: MoteEvent[] = [];
     const messageId = message.message.id;
     const parentToolUseId = message.parent_tool_use_id ?? undefined;
 
@@ -139,7 +139,7 @@ export class SdkEventMapper {
     return events;
   }
 
-  #mapStreamEvent(message: SDKPartialAssistantMessage): CcrEvent[] {
+  #mapStreamEvent(message: SDKPartialAssistantMessage): MoteEvent[] {
     const event = message.event as unknown as {
       type: string;
       message?: { id?: string };
@@ -168,8 +168,8 @@ export class SdkEventMapper {
     ];
   }
 
-  #mapUser(message: SDKUserMessage): CcrEvent[] {
-    const events: CcrEvent[] = [];
+  #mapUser(message: SDKUserMessage): MoteEvent[] {
+    const events: MoteEvent[] = [];
     const content = message.message.content;
 
     if (!Array.isArray(content)) return events;
@@ -191,8 +191,8 @@ export class SdkEventMapper {
     return events;
   }
 
-  #mapResult(message: SDKResultMessage): CcrEvent[] {
-    const events: CcrEvent[] = [];
+  #mapResult(message: SDKResultMessage): MoteEvent[] {
+    const events: MoteEvent[] = [];
 
     // A denial recorded by the CLI is authoritative even when no interactive
     // prompt was shown.

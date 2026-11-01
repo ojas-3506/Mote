@@ -19,8 +19,8 @@
  * Both are headers. Neither puts the token in a URL.
  */
 
-/** The subprotocol every ccr WebSocket offers, and the one the server echoes. */
-export const WS_PROTOCOL = 'ccr-v1';
+/** The subprotocol every Mote WebSocket offers, and the one the server echoes. */
+export const WS_PROTOCOL = 'mote-v1';
 
 /**
  * The subprotocol list a client offers.

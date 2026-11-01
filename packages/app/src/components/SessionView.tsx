@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import type { EvtFrame, SessionSummary } from '@ccr/protocol';
+import type { EvtFrame, SessionSummary } from '@mote/protocol';
 import { SessionClient, type ConnectionState } from '../lib/client';
 import { deviceId } from '../lib/auth';
 
@@ -38,7 +38,7 @@ export function SessionView({
       sessionId: session.sessionId,
       token,
       deviceId: deviceId(),
-      deviceName: 'ccr web',
+      deviceName: 'Mote web',
       onEvent: (event) => setEvents((previous) => [...previous, event]),
       onState: (next, info) => {
         setState(next);

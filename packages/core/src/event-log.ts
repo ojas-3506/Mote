@@ -2,7 +2,7 @@ import { createReadStream } from 'node:fs';
 import { mkdir, readFile, appendFile } from 'node:fs/promises';
 import { createInterface } from 'node:readline';
 import { join } from 'node:path';
-import type { CcrEvent } from '@ccr/protocol';
+import type { MoteEvent } from '@mote/protocol';
 
 /**
  * The append-only event log.
@@ -20,12 +20,12 @@ export interface StoredEvent {
   seq: number;
   sessionId: string;
   ts: number;
-  event: CcrEvent;
+  event: MoteEvent;
 }
 
 export interface EventLog {
   /** Assign a sequence number, persist, and return the stored event. */
-  append(sessionId: string, event: CcrEvent, ts?: number): Promise<StoredEvent>;
+  append(sessionId: string, event: MoteEvent, ts?: number): Promise<StoredEvent>;
   /** Events with `seq > afterSeq`, oldest first, at most `limit` of them. */
   read(sessionId: string, afterSeq: number, limit: number): Promise<StoredEvent[]>;
   /** Highest sequence number for the session, or 0 when there are none. */
@@ -41,7 +41,7 @@ export class MemoryEventLog implements EventLog {
   #events = new Map<string, StoredEvent[]>();
   #nextSeq = new Map<string, number>();
 
-  async append(sessionId: string, event: CcrEvent, ts = Date.now()): Promise<StoredEvent> {
+  async append(sessionId: string, event: MoteEvent, ts = Date.now()): Promise<StoredEvent> {
     const seq = this.#nextSeq.get(sessionId) ?? 1;
     this.#nextSeq.set(sessionId, seq + 1);
     const stored: StoredEvent = { seq, sessionId, ts, event };
@@ -96,7 +96,7 @@ export class JsonlEventLog implements EventLog {
 
   async #load(): Promise<void> {
     // Owner-only. This log holds the whole transcript — prompt text, tool
-    // input, command output — which is the most sensitive thing ccr writes
+    // input, command output — which is the most sensitive thing Mote writes
     // down. The audit log hashes its inputs and can be looser; this one
     // cannot.
     await mkdir(this.#dir, { recursive: true, mode: 0o700 });
@@ -140,7 +140,7 @@ export class JsonlEventLog implements EventLog {
     return join(this.#dir, `${safe}.jsonl`);
   }
 
-  async append(sessionId: string, event: CcrEvent, ts = Date.now()): Promise<StoredEvent> {
+  async append(sessionId: string, event: MoteEvent, ts = Date.now()): Promise<StoredEvent> {
     await this.#opened;
     const seq = this.#nextSeq.get(sessionId) ?? 1;
     this.#nextSeq.set(sessionId, seq + 1);

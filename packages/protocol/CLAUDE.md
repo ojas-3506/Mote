@@ -1,4 +1,4 @@
-# @ccr/protocol
+# @mote/protocol
 
 The wire format between the phone, the relay, and the host daemon. **Every
 other package imports from here; this package imports from nowhere else.**
@@ -15,7 +15,7 @@ derive the types from them.
 | `events.ts` | every event the host publishes, and the `evt` frame envelope |
 | `control.ts` | every control message a client may send |
 | `suggestions.ts` | `filterRemotelyGrantable` — which "always allow" suggestions a phone may grant |
-| `sessions.ts` | the session list a host offers a phone (`GET /ccr/v1/sessions`) |
+| `sessions.ts` | the session list a host offers a phone (`GET /mote/v1/sessions`) |
 | `auth.ts` | how a peer proves who it is — `Authorization` header, or WebSocket subprotocol |
 | `frames.ts` | the frame envelope, constructors, guards |
 
@@ -72,7 +72,7 @@ rule strings itself.
   the API has no way to do it — so a phone would otherwise have to put the
   token in the URL, where it lands in access logs. The token rides in
   `Sec-WebSocket-Protocol` as a second entry, and the server echoes back only
-  `ccr-v1`.
+  `mote-v1`.
 
 Both are headers. Neither puts a token in a URL. A server that accepts
 subprotocols **must** select `WS_PROTOCOL` in `handleProtocols` — a browser

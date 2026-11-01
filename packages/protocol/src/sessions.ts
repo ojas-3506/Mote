@@ -26,7 +26,7 @@ export const SessionSummarySchema = z.object({
 });
 export type SessionSummary = z.infer<typeof SessionSummarySchema>;
 
-/** The body of `GET /ccr/v1/sessions`. */
+/** The body of `GET /mote/v1/sessions`. */
 export const SessionListSchema = z.object({
   hostId: z.string().min(1),
   hostName: z.string(),

@@ -1,6 +1,6 @@
 {
-  "name": "ccr — Claude Code Remote",
-  "short_name": "ccr",
+  "name": "Mote — Claude Code Remote",
+  "short_name": "Mote",
   "description": "Drive your Claude Code session from your phone.",
   "start_url": "/",
   "scope": "/",

@@ -1,5 +1,5 @@
 /**
- * @ccr/core — server-side machinery shared by the host daemon and the relay.
+ * @mote/core — server-side machinery shared by the host daemon and the relay.
  *
  * Nothing in here knows about Claude Code, the Anthropic API, or the relay's
  * tenancy model. It is the transport-and-bookkeeping layer: an append-only

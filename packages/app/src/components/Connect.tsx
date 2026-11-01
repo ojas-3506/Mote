@@ -20,7 +20,7 @@ export function Connect({ onConnect }: { onConnect: (token: string) => void }) {
           if (token) onConnect(token);
         }}
       >
-        <h1>ccr</h1>
+        <h1>Mote</h1>
         <p className="muted">
           Open the link your host printed. It carries the token in the address
           after the <code>#</code>, which never reaches the network.

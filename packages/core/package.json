@@ -1,5 +1,5 @@
 {
-  "name": "@ccr/core",
+  "name": "@mote/core",
   "version": "0.1.0",
   "private": true,
   "description": "Server-side machinery shared by the host daemon and the relay: event log, session streams, pending permission requests, frame connections.",
@@ -21,7 +21,7 @@
     "test": "tsx --test test/*.test.ts"
   },
   "dependencies": {
-    "@ccr/protocol": "*",
+    "@mote/protocol": "*",
     "ws": "^8.18.0"
   },
   "devDependencies": {

@@ -1,8 +1,8 @@
 {
-  "name": "@ccr/host",
+  "name": "@mote/host",
   "version": "0.1.0",
   "private": true,
-  "description": "ccrd — the daemon that owns the Claude Code session and relays it to a phone.",
+  "description": "moted — the daemon that owns the Claude Code session and relays it to a phone.",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -16,7 +16,7 @@
     "dist"
   ],
   "bin": {
-    "ccrd": "./dist/daemon.js"
+    "moted": "./dist/daemon.js"
   },
   "scripts": {
     "build": "tsc -b",
@@ -26,8 +26,8 @@
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.3.312",
-    "@ccr/core": "*",
-    "@ccr/protocol": "*"
+    "@mote/core": "*",
+    "@mote/protocol": "*"
   },
   "devDependencies": {
     "@types/node": "^22.10.2"

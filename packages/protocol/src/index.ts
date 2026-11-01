@@ -1,5 +1,5 @@
 /**
- * @ccr/protocol — the ccr wire format.
+ * @mote/protocol — the Mote wire format.
  *
  * This package is the single source of truth for what travels between the
  * phone, the relay, and the host daemon. Everything else imports from here;

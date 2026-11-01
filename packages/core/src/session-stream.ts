@@ -1,4 +1,4 @@
-import type { CcrEvent } from '@ccr/protocol';
+import type { MoteEvent } from '@mote/protocol';
 import type { EventLog, StoredEvent } from './event-log.js';
 
 /**
@@ -42,7 +42,7 @@ export class SessionStream {
   }
 
   /** Persist an event and fan it out to live subscribers. */
-  async publish(sessionId: string, event: CcrEvent, ts?: number): Promise<StoredEvent> {
+  async publish(sessionId: string, event: MoteEvent, ts?: number): Promise<StoredEvent> {
     const stored = await this.#log.append(sessionId, event, ts);
     const subs = this.#subscribers.get(sessionId);
     if (subs) {

@@ -1,7 +1,7 @@
 import { homedir, hostname } from 'node:os';
 import { join, resolve } from 'node:path';
-import type { PermissionMode } from '@ccr/protocol';
-import type { LogLevel } from '@ccr/core';
+import type { PermissionMode } from '@mote/protocol';
+import type { LogLevel } from '@mote/core';
 
 /**
  * Daemon configuration.
@@ -63,19 +63,19 @@ export const DEFAULT_PERMISSION_TIMEOUT_MS = 15 * 60 * 1000;
 
 export function defaultDataDir(): string {
   const xdg = process.env.XDG_DATA_HOME;
-  if (xdg) return join(xdg, 'ccr');
-  return join(homedir(), '.local', 'share', 'ccr');
+  if (xdg) return join(xdg, 'mote');
+  return join(homedir(), '.local', 'share', 'mote');
 }
 
 /**
  * The bearer token from the environment.
  *
- * `CCR_TOKEN` is the better way to supply one: a token passed as
+ * `MOTE_TOKEN` is the better way to supply one: a token passed as
  * `--token` shows up in the process's command line, and every local user
  * can read that with `ps`.
  */
 export function tokenFromEnv(): string {
-  return process.env.CCR_TOKEN ?? '';
+  return process.env.MOTE_TOKEN ?? '';
 }
 
 export function defaultConfig(): HostConfig {
@@ -110,10 +110,10 @@ export interface ParsedArgs {
   version: boolean;
 }
 
-const USAGE = `ccrd — the ccr host daemon
+const USAGE = `moted — the Mote host daemon
 
 Usage:
-  ccrd [options]
+  moted [options]
 
 Options:
   --port <n>              Port to listen on (default ${DEFAULT_PORT})
@@ -121,7 +121,7 @@ Options:
   --cwd <path>            Workspace to expose; repeat for more (default: cwd)
   --data-dir <path>       Where tokens and logs live (default: ${defaultDataDir()})
   --token <token>         Use a fixed bearer token instead of the stored one.
-                           Prefer the CCR_TOKEN environment variable: a token
+                           Prefer the MOTE_TOKEN environment variable: a token
                            on the command line is visible to every local user.
   --model <id>            Model to start sessions with
   --resume <sessionId>    Resume a Claude Code transcript instead of starting

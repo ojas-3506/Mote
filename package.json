@@ -1,8 +1,8 @@
 {
-  "name": "ccr-workspace",
+  "name": "mote-workspace",
   "private": true,
   "version": "0.1.0",
-  "description": "ccr — an open, self-hostable mobile client for your Claude Code session",
+  "description": "Mote — an open, self-hostable mobile client for your Claude Code session",
   "type": "module",
   "workspaces": [
     "packages/*"
@@ -11,12 +11,12 @@
     "node": ">=22.12.0"
   },
   "scripts": {
-    "build": "tsc -b && npm run build -w @ccr/app",
+    "build": "tsc -b && npm run build -w @mote/app",
     "clean": "tsc -b --clean",
     "typecheck": "for p in packages/*/tsconfig.json; do tsc --noEmit -p \"$p\" || exit 1; done",
     "dev": "concurrently -n host,app -c cyan,magenta \"npm:dev:host\" \"npm:dev:app\"",
     "dev:host": "tsx watch packages/host/src/daemon.ts",
-    "dev:app": "npm run dev -w @ccr/app",
+    "dev:app": "npm run dev -w @mote/app",
     "start": "node packages/cli/dist/index.js",
     "test": "npm run test --workspaces --if-present",
     "lint": "biome check packages",

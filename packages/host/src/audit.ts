@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { appendFile, mkdir, readFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
-import type { VerdictSource } from '@ccr/core';
+import type { VerdictSource } from '@mote/core';
 
 /**
  * The audit log.
@@ -94,7 +94,7 @@ export class AuditLog {
   async export(): Promise<string> {
     const entries = await this.read();
     const header = [
-      '# ccr audit log',
+      '# Mote audit log',
       `# exported ${new Date().toISOString()}`,
       '# tool inputs are recorded as SHA-256 hashes; the full input is in the session transcript',
       '',

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { networkInterfaces } from 'node:os';
 import { join, resolve } from 'node:path';
-import { JsonlEventLog, SessionStream, createLogger } from '@ccr/core';
+import { JsonlEventLog, SessionStream, createLogger } from '@mote/core';
 import { AuditLog } from './audit.js';
 import { USAGE, defaultConfig, parseArgs, type HostConfig } from './config.js';
 import { loadOrCreateIdentity } from './identity.js';
@@ -10,7 +10,7 @@ import { SessionManager } from './session-manager.js';
 import { readHostVersions } from './versions.js';
 
 /**
- * `ccrd` — the host daemon.
+ * `moted` — the host daemon.
  *
  * Owns one or more Claude Code sessions on the user's machine and serves them
  * to a phone over the local network.
@@ -26,7 +26,7 @@ async function main(): Promise<void> {
   }
   if (parsed.version) {
     const versions = readHostVersions();
-    process.stdout.write(`ccrd (sdk ${versions.sdkVersion}, claude ${versions.claudeVersion})\n`);
+    process.stdout.write(`moted (sdk ${versions.sdkVersion}, claude ${versions.claudeVersion})\n`);
     return;
   }
 
@@ -43,7 +43,7 @@ async function main(): Promise<void> {
     throw new Error('--resume applies to a single workspace; expose one with --cwd');
   }
 
-  const logger = createLogger({ level: config.logLevel, name: 'ccrd' });
+  const logger = createLogger({ level: config.logLevel, name: 'moted' });
   const versions = readHostVersions();
 
   const identity = await loadOrCreateIdentity(config.dataDir);
@@ -85,7 +85,7 @@ async function main(): Promise<void> {
   const address = displayAddress(config.bind);
   const base = `http://${address}:${port}`;
 
-  process.stdout.write(`\nccrd listening on ${base}\n`);
+  process.stdout.write(`\nmoted listening on ${base}\n`);
   process.stdout.write(`  host      ${identity.hostName} (${identity.hostId})\n`);
   process.stdout.write(`  claude    ${versions.claudeVersion}   sdk ${versions.sdkVersion}\n`);
   for (const summary of sessions.list()) {
@@ -140,6 +140,6 @@ function lanAddress(): string | undefined {
 }
 
 main().catch((error) => {
-  process.stderr.write(`ccrd failed to start: ${error instanceof Error ? error.message : String(error)}\n`);
+  process.stderr.write(`moted failed to start: ${error instanceof Error ? error.message : String(error)}\n`);
   process.exit(1);
 });

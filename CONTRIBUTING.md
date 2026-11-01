@@ -28,10 +28,10 @@ Node 22.12+. TypeScript is pinned to 5.x; zod is 4.x.
 packages/
   protocol/   the wire format — zod schemas, frames, events. Source of truth.
   core/       server-side machinery: event log, fan-out, pending approvals.
-  host/       ccrd — owns the Claude Code session via the Agent SDK.
+  host/       moted — owns the Claude Code session via the Agent SDK.
   app/        the PWA (React + Vite).
   relay/      the WebSocket relay: pairing, tokens, host↔client routing.
-  cli/        ccr — install, pair, inspect.
+  cli/        mote — install, pair, inspect.
 ```
 
 The dependency graph is a straight line: `protocol` ← `core` ← {`host`,

@@ -29,7 +29,7 @@ export interface Logger {
 
 export interface LoggerOptions {
   level?: LogLevel;
-  /** Prefix identifying the component, e.g. `ccrd` or `relay`. */
+  /** Prefix identifying the component, e.g. `moted` or `relay`. */
   name?: string;
   /** Where lines go. Defaults to stderr. */
   sink?: (line: string) => void;
@@ -39,7 +39,7 @@ export interface LoggerOptions {
 
 export function createLogger(options: LoggerOptions = {}): Logger {
   const level = options.level ?? 'info';
-  const name = options.name ?? 'ccr';
+  const name = options.name ?? 'Mote';
   const sink = options.sink ?? ((line: string) => process.stderr.write(`${line}\n`));
   const now = options.now ?? Date.now;
 

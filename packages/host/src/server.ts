@@ -14,8 +14,8 @@ import {
   type Frame,
   type ReqFrame,
   type SessionList,
-} from '@ccr/protocol';
-import { attachWebSocketServer, type FrameConnection, type Logger, type SessionStream } from '@ccr/core';
+} from '@mote/protocol';
+import { attachWebSocketServer, type FrameConnection, type Logger, type SessionStream } from '@mote/core';
 import { renameSession } from '@anthropic-ai/claude-agent-sdk';
 import type { AuditEntry, AuditLog } from './audit.js';
 import type { SessionManager } from './session-manager.js';
@@ -93,7 +93,7 @@ export class HostServer {
     });
 
     attachWebSocketServer(this.#http, {
-      pathPrefix: '/ccr/v1/session',
+      pathPrefix: '/mote/v1/session',
       authorize: (request, url) => this.#authorize(request, url),
       onConnection: (connection, _request, url) => {
         void this.#handleSocket(connection, url);
@@ -159,7 +159,7 @@ export class HostServer {
         return;
       }
 
-      if (url.pathname === '/ccr/v1/sessions') {
+      if (url.pathname === '/mote/v1/sessions') {
         // Discovery: what a phone may connect to. Authenticated like everything
         // else — the list reveals the user's project paths.
         const refusal = this.#authorize(request, url);
@@ -256,8 +256,8 @@ export class HostServer {
     // Same rule as the HTTP handler: an unexpected throw here would end the
     // process, and the process is holding the session.
     try {
-      // The path is /ccr/v1/session/<sessionId>
-      const raw = url.pathname.replace(/^\/ccr\/v1\/session\/?/, '');
+      // The path is /mote/v1/session/<sessionId>
+      const raw = url.pathname.replace(/^\/mote\/v1\/session\/?/, '');
       const sessionId = safeDecode(raw);
       if (sessionId === undefined) {
         connection.close(4004, 'no such session');

@@ -27,7 +27,7 @@ repository, or the credentials ever leaving that machine.
 
 ```
 ┌──────────────────────┐                ┌──────────────────┐                ┌───────────────────────────────┐
-│  Phone (PWA)         │                │  Relay           │                │  Host daemon (ccrd)           │
+│  Phone (PWA)         │                │  Relay           │                │  Host daemon (moted)           │
 │  React + Vite        │                │  Go or TS        │                │  runs on the user's machine   │
 │                      │   WSS         │                  │   WSS         │                               │
 │  chat view           │◄──────────────►│  session registry │◄──────────────►│  Agent SDK → claude process   │
@@ -42,7 +42,7 @@ repository, or the credentials ever leaving that machine.
 
 **Three properties do most of the work:**
 
-1. **The host dials out.** `ccrd` opens an outbound WebSocket to the relay and keeps it
+1. **The host dials out.** `moted` opens an outbound WebSocket to the relay and keeps it
    open. Nothing ever connects *in* to the user's machine, so no port forwarding, no
    NAT traversal, no inbound firewall rules. Works from any network, including
    cellular and CGNAT.
@@ -247,7 +247,7 @@ worker decrypts on device.
 
 | Tier | Who it's for | Setup |
 | --- | --- | --- |
-| **Public relay** | anyone who wants to try it in 5 minutes | install `ccrd`, pair the phone |
+| **Public relay** | anyone who wants to try it in 5 minutes | install `moted`, pair the phone |
 | **Self-hosted relay** | privacy-conscious users, orgs | `docker compose up relay` |
 | **LAN / direct** | solo use, air-gapped, no relay process at all | host serves the PWA directly |
 
@@ -259,10 +259,10 @@ never executes code, so running the public one is a much smaller risk than it lo
 ```
 packages/
   protocol/   shared event schema + zod validation — the source of truth for the wire
-  host/       ccrd: Agent SDK session ownership, event emission, control handling
+  host/       moted: Agent SDK session ownership, event emission, control handling
   relay/      WebSocket relay, event log, pairing, web push
   app/        PWA (React + Vite)
-  cli/        ccr: install, pair, list hosts/sessions
+  cli/        mote: install, pair, list hosts/sessions
 docs/
   DESIGN.md          this file
   EVENT-PROTOCOL.md  wire format
@@ -362,7 +362,7 @@ CLI flags verified present in v2.1.280: `--remote-control`, `--channels`,
 ## 12. Milestones
 
 **M0 — LAN-only, no relay, no auth.** *(mostly done)*
-`ccrd` serves the PWA over the LAN. No pairing, no event log, no push. Purpose: get a
+`moted` serves the PWA over the LAN. No pairing, no event log, no push. Purpose: get a
 real UI on a real phone and learn what actually gets used. This is where the
 permission sheet design gets validated — watching yourself tap "Allow" on a phone
 tells you things a design doc can't.
@@ -402,7 +402,7 @@ change between them.
   (via the SDK) is simpler and gives full control. But users already running Claude
   Code in a terminal want to *keep* that session and add a phone to it. Claude Code's
   Channels preview is the only sanctioned way to attach to a running session; until
-  it's stable, hostd owns its own sessions and users run `ccr` instead of `claude`.
+  it's stable, hostd owns its own sessions and users run `mote` instead of `claude`.
   This is the biggest open product question.
 - **Unattended operation.** Long-running turns need permission handling without a
   human. Options: `dontAsk` mode (deny anything that would prompt), a sandbox with

@@ -1,5 +1,5 @@
 /**
- * @ccr/host — `ccrd`, the daemon that owns the Claude Code session.
+ * @mote/host — `moted`, the daemon that owns the Claude Code session.
  */
 
 export * from './config.js';

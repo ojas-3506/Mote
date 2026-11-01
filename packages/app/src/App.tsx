@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { SessionList, SessionSummary } from '@ccr/protocol';
+import type { SessionList, SessionSummary } from '@mote/protocol';
 import { clearToken, loadToken, saveToken, takeTokenFromFragment } from './lib/auth';
 import { fetchSessions } from './lib/client';
 import { Connect } from './components/Connect';

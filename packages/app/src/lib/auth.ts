@@ -8,7 +8,7 @@
  */
 
 /** sessionStorage, not localStorage: the token dies with the tab. */
-const TOKEN_KEY = 'ccr.token';
+const TOKEN_KEY = 'mote.token';
 
 /**
  * Read the token out of the URL fragment, and take the fragment out of the
@@ -49,7 +49,7 @@ export function clearToken(): void {
  * should survive a reload, or the audit trail fills with `unknown` devices.
  */
 export function deviceId(): string {
-  const key = 'ccr.deviceId';
+  const key = 'mote.deviceId';
   const existing = window.localStorage.getItem(key);
   if (existing) return existing;
 

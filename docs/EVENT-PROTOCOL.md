@@ -8,18 +8,18 @@ zod, with the schema generating the other languages' types).
 
 | Connection | Endpoint | Initiated by | Auth |
 | --- | --- | --- | --- |
-| Host | `wss://<relay>/ccr/v1/host` | host (outbound only) | host token in `Authorization` header |
-| Client | `wss://<relay>/ccr/v1/session/<sessionId>?after=<seq>` | phone | device token in `Authorization` header, or in the WebSocket subprotocol |
-| Discover | `GET <relay>/ccr/v1/sessions` | phone | device token in `Authorization` header |
-| Enroll | `POST <relay>/ccr/v1/pair` | phone | pairing code (one-time) |
-| Push sub | `POST <relay>/ccr/v1/push/subscribe` | phone | device token |
+| Host | `wss://<relay>/mote/v1/host` | host (outbound only) | host token in `Authorization` header |
+| Client | `wss://<relay>/mote/v1/session/<sessionId>?after=<seq>` | phone | device token in `Authorization` header, or in the WebSocket subprotocol |
+| Discover | `GET <relay>/mote/v1/sessions` | phone | device token in `Authorization` header |
+| Enroll | `POST <relay>/mote/v1/pair` | phone | pairing code (one-time) |
+| Push sub | `POST <relay>/mote/v1/push/subscribe` | phone | device token |
 
 Every connection is TLS. There is no plaintext fallback.
 
 **A browser cannot set headers on a WebSocket.** The `Authorization` header is
 how everything but the phone authenticates; a phone has to use the
-`Sec-WebSocket-Protocol` header instead, offering `ccr-v1` and the token as
-two entries. The server selects `ccr-v1` and reads the token from the second
+`Sec-WebSocket-Protocol` header instead, offering `mote-v1` and the token as
+two entries. The server selects `mote-v1` and reads the token from the second
 entry. Both are headers — a token never goes in the URL.
 
 **Discovery** returns the sessions the caller may connect to, so a phone
@@ -206,7 +206,7 @@ phone                          relay                         host
 
 The code is short-lived (default 5 minutes), single-use, and bound to one host. The
 host shows it in its terminal and/or as a QR code containing a URL of the form
-`https://<relay>/ccr/p/<code>`.
+`https://<relay>/mote/p/<code>`.
 
 Pairing creates two credentials:
 

@@ -1,8 +1,8 @@
 {
-  "name": "@ccr/protocol",
+  "name": "@mote/protocol",
   "version": "0.1.0",
   "private": true,
-  "description": "The ccr wire format: frames, events, control messages. The source of truth for host, relay, and client.",
+  "description": "The Mote wire format: frames, events, control messages. The source of truth for host, relay, and client.",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

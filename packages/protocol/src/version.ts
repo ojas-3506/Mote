@@ -13,7 +13,7 @@ export const PROTOCOL_VERSION = 1;
  * URL prefix for every endpoint. The version lives in the path so a relay can
  * serve the previous major version for at least one release.
  */
-export const PROTOCOL_PREFIX = '/ccr/v1';
+export const PROTOCOL_PREFIX = '/mote/v1';
 
 /** Path a client connects to for one session's event stream. */
 export const SESSION_PATH = (sessionId: string): string =>

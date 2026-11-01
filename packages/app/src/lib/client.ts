@@ -9,11 +9,11 @@ import {
   type ControlKind,
   type EvtFrame,
   type Frame,
-} from '@ccr/protocol';
-import { SessionListSchema, type SessionList } from '@ccr/protocol';
+} from '@mote/protocol';
+import { SessionListSchema, type SessionList } from '@mote/protocol';
 
 /**
- * The phone's half of the ccr link.
+ * The phone's half of the Mote link.
  *
  * One WebSocket per session. Events arrive on it, requests go back up it,
  * and a dropped connection is resumed from a cursor rather than restarted —
@@ -223,7 +223,7 @@ export class SessionClient {
  * `undefined` into a list.
  */
 export async function fetchSessions(token: string): Promise<SessionList> {
-  const response = await fetch('/ccr/v1/sessions', {
+  const response = await fetch('/mote/v1/sessions', {
     headers: { Authorization: `Bearer ${token}` },
   });
 

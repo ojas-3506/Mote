@@ -1,4 +1,4 @@
-# @ccr/core
+# @mote/core
 
 Server-side machinery shared by the host daemon and the relay: the event log,
 live fan-out with cursor replay, pending permission requests, and JSON frame
