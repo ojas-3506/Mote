@@ -10,7 +10,7 @@ behave identically from a client's point of view.
 
 | File | Holds |
 | --- | --- |
-| `event-log.ts` | `EventLog` interface, `MemoryEventLog`, `JsonlEventLog` |
+| `event-log.ts` | `EventLog` interface, `MemoryEventLog`, `JsonlEventLog` — owner-only, because the log holds the whole transcript |
 | `session-stream.ts` | `SessionStream` — publish, subscribe, cursor replay |
 | `pending.ts` | `PendingRequests` — the approval lifecycle |
 | `connection.ts` | `FrameConnection`, `attachWebSocketServer` |
@@ -60,6 +60,28 @@ default). The client then re-fetches full history and starts a fresh cursor.
 The timeout timer is deliberately **not** `unref()`'d. The deny-on-timeout is a
 guarantee, not a convenience: it has to fire even when nothing else is keeping
 the process alive. Shutdown paths call `failAll()`, which clears the timers.
+
+### `settle()` is async, and that is the point
+
+`settle(id, value, beforeRelease?)` takes an optional hook that runs *after*
+the request has been claimed and *before* the verdict is delivered. The host
+writes its audit record in that hook: an approval that outruns its own record
+defeats the purpose of the record.
+
+Two things depend on the ordering, so don't "simplify" it back to a
+synchronous settle:
+
+- **The claim happens before the hook runs.** The entry is removed from the map
+  first, so a second verdict for the same id cannot release the request while
+  the first is still recording it. The timeout timer is cleared at the same
+  moment — once a request is claimed it is being decided, and a timeout firing
+  underneath a half-written record would leave the two disagreeing.
+- **A hook that throws denies the request.** The verdict resolves as denied
+  and the error is rethrown. A record that cannot be written must not let an
+  unrecorded approval through, and must not leave the agent blocked forever.
+
+`onEnded(id)` fires when a request ends *without* being answered — a timeout
+or a `failAll` — so the caller can drop the per-request state it kept.
 
 ## Connections
 

@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { appendFile, mkdir, readFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
+import type { VerdictSource } from '@ccr/core';
 
 /**
  * The audit log.
@@ -37,6 +38,15 @@ export interface AuditEntry {
   always?: boolean;
   /** SHA-256 of the tool input. Proves what was approved without storing it. */
   inputHash?: string;
+  /**
+   * Where a permission verdict came from.
+   *
+   * `phone` is a person tapping Allow or Deny. `timeout` is nobody
+   * answering. `host` is the daemon giving up — a disconnect, an
+   * interrupted turn, a record it could not write. Without this, a denial
+   * that nobody chose looks the same as one they did.
+   */
+  by?: VerdictSource;
 }
 
 export function hashInput(input: unknown): string {
@@ -99,6 +109,7 @@ export class AuditLog {
         entry.decision ?? '',
         entry.always === undefined ? '' : String(entry.always),
         entry.inputHash ?? '',
+        entry.by ?? '',
       ];
       return parts.join('\t');
     });

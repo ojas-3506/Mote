@@ -39,6 +39,8 @@ export interface SdkEventMapperOptions {
   hostId: string;
   /** The Claude Code version the SDK is running. */
   claudeVersion: string;
+  /** Whether this session continues an existing transcript. */
+  resumed?: boolean;
 }
 
 export class SdkEventMapper {
@@ -81,7 +83,7 @@ export class SdkEventMapper {
           cwd: system.cwd,
           claudeSessionId: system.session_id,
           model: system.model,
-          resumed: false,
+          resumed: this.#options.resumed ?? false,
           claudeVersion: this.#options.claudeVersion,
         },
       },

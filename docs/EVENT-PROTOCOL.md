@@ -9,12 +9,18 @@ zod, with the schema generating the other languages' types).
 | Connection | Endpoint | Initiated by | Auth |
 | --- | --- | --- | --- |
 | Host | `wss://<relay>/ccr/v1/host` | host (outbound only) | host token in `Authorization` header |
-| Client | `wss://<relay>/ccr/v1/session/<sessionId>?after=<seq>` | phone | device token in `Authorization` header |
+| Client | `wss://<relay>/ccr/v1/session/<sessionId>?after=<seq>` | phone | device token in `Authorization` header, or in the WebSocket subprotocol |
 | Discover | `GET <relay>/ccr/v1/sessions` | phone | device token in `Authorization` header |
 | Enroll | `POST <relay>/ccr/v1/pair` | phone | pairing code (one-time) |
 | Push sub | `POST <relay>/ccr/v1/push/subscribe` | phone | device token |
 
 Every connection is TLS. There is no plaintext fallback.
+
+**A browser cannot set headers on a WebSocket.** The `Authorization` header is
+how everything but the phone authenticates; a phone has to use the
+`Sec-WebSocket-Protocol` header instead, offering `ccr-v1` and the token as
+two entries. The server selects `ccr-v1` and reads the token from the second
+entry. Both are headers — a token never goes in the URL.
 
 **Discovery** returns the sessions the caller may connect to, so a phone
 doesn't have to be told a session id out of band. It is authenticated like
@@ -71,7 +77,7 @@ Canonical event payloads. Fields marked optional may be absent.
 | `type` | `data` |
 | --- | --- |
 | `session.started` | `{ sessionId, hostId, cwd, claudeSessionId, model, resumed, claudeVersion }` |
-| `session.resumed` | `{ sessionId, claudeSessionId }` |
+| `session.resumed` | `{ sessionId, claudeSessionId }` — reserved for a session picked up on a different host |
 | `session.idle` | `{ reason: 'turn_complete' \| 'awaiting_permission' \| 'interrupted' }` |
 | `session.error` | `{ code, message, fatal }` |
 
@@ -101,8 +107,15 @@ trusted instruction.** See SECURITY.md §5.
 
 | `type` | `data` |
 | --- | --- |
-| `permission.request` | `{ requestId, toolUseId, toolName, displayName, title, description, input, defaultToNo, suggestions }` |
+| `permission.request` | `{ requestId, toolUseId, toolName, displayName, title, description, input, defaultToNo, suggestions, blockedPath?, decisionReason?, agentID? }` |
 | `permission.resolved` | `{ requestId, behavior: 'allow' \| 'deny', by: 'phone' \| 'timeout' \| 'host' }` |
+
+The last three fields are the SDK's own account of *why* it is asking, and the
+phone should show them: `blockedPath` is the path that triggered the request
+(often the reason a command needed approval at all), `decisionReason` explains
+the trigger in words, and `agentID` says the request came from a sub-agent
+rather than the main agent. All three are optional — a client that only
+renders `title` and `input` is still correct, just less informed.
 
 `suggestions` is the SDK's `PermissionUpdate[]`, relayed (after filtering — see
 below). The client offers them as "always allow" choices and returns them
@@ -152,15 +165,15 @@ the same `id`.
 | `prompt.send` | `{ text, attachments?, priority? }` | `priority` maps to `SDKUserMessage.priority` |
 | `session.interrupt` | `{}` | maps to `Query.interrupt()` |
 | `permission.resolve` | `{ requestId, behavior, updatedInput?, updatedPermissions?, message? }` | the only way to approve |
+| `session.model` | `{ model }` | maps to `Query.setModel()` |
+| `session.permission_mode` | `{ mode }` | maps to `Query.setPermissionMode()` |
+| `session.rename` | `{ title }` | maps to `renameSession()` |
+| `session.close` | `{}` | ends the Claude session |
 
 A `permission.resolve` may carry `updatedInput`, but the host **ignores it**
 for remote clients. The SDK supports rewriting a tool's input, and a phone
 could rewrite `Bash(command: "ls")` into something else *after* the user read
 the prompt. The input that was shown must be the input that runs.
-| `session.model` | `{ model }` | maps to `Query.setModel()` |
-| `session.permission_mode` | `{ mode }` | maps to `Query.setPermissionMode()` |
-| `session.rename` | `{ title }` | maps to `renameSession()` |
-| `session.close` | `{}` | ends the Claude session |
 
 A `permission.resolve` for an unknown or already-resolved `requestId` returns
 `{ ok: false, error: { code: 'no_such_request' } }`. The host must also reject a
@@ -226,8 +239,15 @@ install time, and never again). See SECURITY.md §2.
 
 - Unknown event `type` values must be ignored by clients, not treated as errors.
 - Unknown fields must be ignored.
-- Unknown `req.kind` values must be rejected with `res { ok: false, error: { code:
-  'unknown_kind' } }`.
+- A `req` whose `kind` this peer does not implement — or whose `data` does not
+  match the schema for its kind — **fails to parse**. The strict frame union
+  is what gives an exhaustive `switch` on `kind`, and it cannot hold a
+  catch-all without giving that up. A frame that does not parse ends the
+  connection (WebSocket close code 1002, "invalid frame"): a peer that cannot
+  produce a valid frame is not one to keep talking to.
+- `unknown_kind` and `bad_request` are reserved for a peer that *can* parse a
+  request and dispatch it — the relay, once it exists. The host never needs
+  them, because a frame that reaches it has already been parsed.
 - Additive protocol changes (new event types, new optional fields) do not bump `v`.
   Breaking changes bump `v` and the relay must support the previous version for at
   least one release.

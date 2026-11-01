@@ -14,13 +14,14 @@ packages/
   protocol/   the wire format — zod schemas, frames, events. Source of truth.
   core/       server-side machinery: event log, fan-out, pending approvals.
   host/       ccrd — owns the Claude Code session via the Agent SDK.
-  relay/      the WebSocket relay: pairing, tokens, host↔client routing.
   app/        the PWA (React + Vite).
+  relay/      the WebSocket relay: pairing, tokens, host↔client routing.
   cli/        ccr — install, pair, inspect.
 docs/
   DESIGN.md          architecture, SDK integration, milestones.
   EVENT-PROTOCOL.md  the wire format, in prose.
   SECURITY.md        threat model, permission surface, release checklist.
+LICENSE  SECURITY.md  CONTRIBUTING.md
 ```
 
 The dependency graph is a straight line: `protocol` ← `core` ← {`host`, `relay`,
@@ -32,9 +33,9 @@ wrong — not the import.
 
 ```bash
 npm install          # install (npm workspaces; pnpm also works)
-npm run build        # tsc -b across every package
+npm run build        # tsc -b across every package, then the PWA bundle
 npm run typecheck    # type-check without emitting
-npm test             # node:test via tsx
+npm test             # node:test via tsx, one run per package
 npm run dev          # host daemon + PWA dev server, side by side
 ```
 
@@ -50,7 +51,7 @@ The work is split so that each phase ends in something demonstrable.
 | 1 | `protocol` + `core` — the wire contract and the transport plumbing | **done** |
 | 2 | `host` — `ccrd` owns a Claude Code session, relays approvals, serves a phone directly | **done** |
 | 3 | `relay` — pairing, device/host tokens, host↔client routing | next |
-| 4 | `app` — the PWA: chat, tool rows, diffs, the permission sheet | |
+| 4 | `app` — the PWA: chat, tool rows, diffs, the permission sheet | **started** — the transport works end to end |
 | 5 | `cli` + packaging — `ccr` command, install script, Docker | |
 | 6 | Hardening — threat-model pass, release checklist, docs | |
 
@@ -58,6 +59,14 @@ Phase 2 deliberately skips the relay: the host serves a phone directly on the
 LAN, which is enough to validate the permission sheet against a real human
 tapping on a real screen. `scripts/smoke.mjs` drives the whole thing
 end to end against a real Claude Code session.
+
+Phase 4 started before Phase 3, deliberately. The app is what validates the
+design — the relay only scales it, and the protocol does not change between
+them. `packages/app` currently has the transport working end to end
+(hash-token auth, WebSocket with cursor resume, session picker, a composer);
+the chat view, the tool rows, and **the permission sheet** are still to come.
+There is deliberately no approve button in the app yet — see
+`packages/app/CLAUDE.md`.
 
 ## Architecture
 
@@ -116,9 +125,10 @@ project's whole reason to exist. Each one has a test.
 9. **The relay executes nothing.** It parses JSON with a size limit and routes
    frames. No eval, no plugin loading, no deserialization of anything else.
 10. **Credentials stay hashed and out of logs.** Tokens are stored hashed at the
-   relay, sent in `Authorization` (never a query string), and prompt content
-   never reaches a log file. A token is required even with no relay in the
-   picture — "it's only my home network" is not a control.
+   relay, sent in a header — `Authorization`, or the WebSocket subprotocol for
+   a browser, which cannot set headers — and never in a query string. Prompt
+   content never reaches a log file. A token is required even with no relay in
+   the picture — "it's only my home network" is not a control.
 
 ## Conventions
 
@@ -140,5 +150,9 @@ project's whole reason to exist. Each one has a test.
 
 New to the project? Read `docs/DESIGN.md` for the shape of the thing,
 `docs/EVENT-PROTOCOL.md` for the bytes on the wire, and `docs/SECURITY.md`
-for the rules above in their full context. Then `packages/protocol/CLAUDE.md`
-and `packages/core/CLAUDE.md` for the code you're about to touch.
+for the rules above in their full context. Then the `CLAUDE.md` of the
+package you're about to touch — each one says what that package holds and
+the rules that apply inside it.
+
+`CONTRIBUTING.md` has the build/test workflow and the conventions.
+`SECURITY.md` at the root has how to report a vulnerability.

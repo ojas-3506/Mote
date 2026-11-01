@@ -1,7 +1,7 @@
 import type { IncomingMessage, Server as HttpServer } from 'node:http';
 import type { Duplex } from 'node:stream';
 import { WebSocket, WebSocketServer } from 'ws';
-import { safeParseFrame, type Frame } from '@ccr/protocol';
+import { WS_PROTOCOL, safeParseFrame, type Frame } from '@ccr/protocol';
 
 /**
  * A JSON text-frame connection.
@@ -163,6 +163,11 @@ export function attachWebSocketServer(
   const wss = new WebSocketServer({
     noServer: true,
     maxPayload: options.maxFrameBytes ?? DEFAULT_MAX_FRAME_BYTES,
+    // A browser that offered subprotocols fails the connection if the
+    // server selects none, so one has to be selected — but only the one
+    // that names the protocol. The token travels in the same header and is
+    // never echoed back.
+    handleProtocols: (protocols) => (protocols.has(WS_PROTOCOL) ? WS_PROTOCOL : false),
   });
 
   httpServer.on('upgrade', (request: IncomingMessage, socket: Duplex, head: Buffer) => {

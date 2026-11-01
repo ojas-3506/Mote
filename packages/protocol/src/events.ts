@@ -295,6 +295,29 @@ export const EvtFrameSchema = z.discriminatedUnion('type', [
       defaultToNo: z.boolean(),
       suggestions: z.array(PermissionUpdateSchema),
       /**
+       * The path that triggered the permission request, when there is one.
+       *
+       * The SDK sets this when, for example, a Bash command tries to reach a
+       * path outside the allowed directories. It is the difference between
+       * approving "run this command" and approving "run this command
+       * *because it touches this path*".
+       */
+      blockedPath: z.string().optional(),
+      /**
+       * Why the SDK decided to ask. A safety check is not the same ask as a
+       * routine confirmation, and the person tapping Allow deserves to know
+       * which one they are looking at.
+       */
+      decisionReason: z.string().optional(),
+      /**
+       * The sub-agent that raised the request, when it came from one.
+       *
+       * Without this a prompt from a sub-agent is indistinguishable from a
+       * prompt from the main agent — and a sub-agent's tool call is one
+       * level further from the user's intent, not closer.
+       */
+      agentID: z.string().optional(),
+      /**
        * The MCP server behind an `mcp__*` tool, if any.
        *
        * `name` is untrusted text for servers loaded from configuration.

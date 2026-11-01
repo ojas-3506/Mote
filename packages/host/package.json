@@ -12,14 +12,17 @@
       "default": "./dist/index.js"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "bin": {
     "ccrd": "./dist/daemon.js"
   },
   "scripts": {
     "build": "tsc -b",
     "typecheck": "tsc -b --noEmit",
-    "start": "tsx src/daemon.ts"
+    "start": "tsx src/daemon.ts",
+    "test": "tsx --test test/*.test.ts"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.3.312",

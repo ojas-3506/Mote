@@ -11,14 +11,14 @@
     "node": ">=22.12.0"
   },
   "scripts": {
-    "build": "tsc -b",
+    "build": "tsc -b && npm run build -w @ccr/app",
     "clean": "tsc -b --clean",
-    "typecheck": "tsc -b --noEmit",
+    "typecheck": "for p in packages/*/tsconfig.json; do tsc --noEmit -p \"$p\" || exit 1; done",
     "dev": "concurrently -n host,app -c cyan,magenta \"npm:dev:host\" \"npm:dev:app\"",
     "dev:host": "tsx watch packages/host/src/daemon.ts",
-    "dev:app": "vite --config packages/app/vite.config.ts",
+    "dev:app": "npm run dev -w @ccr/app",
     "start": "node packages/cli/dist/index.js",
-    "test": "tsx --test packages/*/test/*.test.ts",
+    "test": "npm run test --workspaces --if-present",
     "lint": "biome check packages",
     "format": "biome format --write packages"
   },

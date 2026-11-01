@@ -63,6 +63,16 @@ the host** — it routes frames and nothing else.
 - Device tokens are sent in the `Authorization` header, never in a query string, so
   they don't land in logs.
 
+**A browser cannot set headers on a WebSocket.** The platform gives a phone no
+way to put an `Authorization` header on a WebSocket handshake, and the
+alternative — the token in the URL — is exactly what the rule above forbids.
+So the token travels in the `Sec-WebSocket-Protocol` header instead, as a
+second entry after `ccr-v1`. The server selects only `ccr-v1`, so the token is
+never echoed back.
+
+Both mechanisms are headers. Neither puts a token in a URL, where it would be
+written to access logs and proxy logs by anything in the path.
+
 **A token is required even with no relay in the picture.** The host daemon serves
 a phone directly on the LAN in its simplest deployment, and it still demands a
 bearer token on every connection. Without one, anyone on the café wifi can
@@ -256,13 +266,18 @@ still run inside a sandbox.
 Every approval, denial, prompt, and model switch is recorded on the host:
 
 ```
-ts, sessionId, actor(deviceId), kind, toolName, toolUseId, decision, inputHash
+ts, sessionId, actor(deviceId), kind, toolName, toolUseId, decision, inputHash, by
 ```
 
 The log is append-only and lives on the user's machine. `inputHash` is a hash of the
 tool input rather than the input itself, so the log proves *what was approved* without
 becoming a second copy of the sensitive data. The full input is recoverable from the
 session transcript.
+
+`by` says where a permission verdict came from: `phone` (a person tapped Allow or
+Deny), `timeout` (nobody answered), or `host` (the daemon gave up — a disconnect, an
+interrupted turn, a record it could not write). Without it, a denial nobody chose looks
+the same as one they did.
 
 The audit log must be exportable in a form a user can read. "Trust but verify" is the
 point.
@@ -271,6 +286,16 @@ point.
 outruns its own audit entry defeats the purpose of the entry — if the machine
 dies in between, code ran that no record accounts for. The host writes the
 audit entry, then releases the verdict.
+
+**A verdict that was refused is not recorded at all.** A resolve for an unknown,
+expired, or already-answered `requestId` changes nothing, so recording it would put
+an "allow" in the log for a tool call that was actually denied. The log records what
+happened, not what was attempted.
+
+**A denial nobody chose is recorded.** A request that times out, a session that
+disconnects mid-approval, an interrupted turn — each one denies the tool, and each one
+leaves a line saying so. The log has to show what was *not* approved as well as what
+was.
 
 ## 9. Abuse on a public relay
 
@@ -288,11 +313,30 @@ A public relay is free compute and a free path to people's machines. Mitigations
 
 ## 10. Reporting a vulnerability
 
-Security issues go to a private security contact, not a public issue. Add a
-`SECURITY.md` at the repo root with the address before publishing. Consider a bug
-bounty once the permission flow has had external review.
+Security issues go to a private security contact, not a public issue. The
+address and the process are in [`SECURITY.md`](../SECURITY.md) at the repo
+root. Consider a bug bounty once the permission flow has had external review.
 
 ## 11. Checklist before any release
+
+Nothing is checked yet — there is no release, and several of these cannot be
+satisfied until the client and the relay exist. Where things stand:
+
+**Done in the host** — timeouts resolve to deny, offline resolves to deny,
+late and replayed verdicts are rejected, a remote "always allow" can only
+create a session-scoped grant, `updatedInput` from a remote client is
+ignored, `bypassPermissions` is not settable from any remote client, a token
+is required even in LAN-only deployments, and the audit log is append-only,
+exportable, and written before the verdict.
+
+**Waiting on the client** — `defaultToNo` honoured per request, one-key
+approve paths, escaped MCP server names and session-derived strings, no HTML
+rendering of tool input, push notifications that cannot approve.
+
+**Waiting on the relay** — tokens hashed at rest and revocable, frame size
+and rate limits, pairing that produces a visible line on the host terminal.
+
+**Not started** — the sandbox.
 
 - [ ] `defaultToNo` is honored per request; no one-key approve path exists
 - [ ] Permission requests time out to deny; offline resolves to deny

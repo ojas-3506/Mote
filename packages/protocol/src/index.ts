@@ -11,4 +11,6 @@ export * from './errors.js';
 export * from './events.js';
 export * from './suggestions.js';
 export * from './control.js';
+export * from './sessions.js';
+export * from './auth.js';
 export * from './frames.js';

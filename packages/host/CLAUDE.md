@@ -69,6 +69,22 @@ request ids are refused, and the client is told `no_such_request`.
 **The audit entry is written before the verdict is delivered.** An approval
 that outruns its own record defeats the point of the record.
 
+**A verdict that was refused is not recorded.** A resolve for an unknown,
+expired, or already-answered `requestId` changes nothing, and writing it would
+put an "allow" in the log for a tool call that was actually denied. The log
+records what happened, not what was attempted.
+
+**A denial nobody chose is recorded.** A timeout, a disconnect, an interrupted
+turn — each denies the tool and each leaves a line saying so, with `by` naming
+where the verdict came from. The log has to show what was *not* approved as
+well as what was.
+
+**The SDK's context about *why* it is asking travels with the request.**
+`blockedPath` (the path that triggered the ask), `decisionReason` (the trigger
+in words), and `agentID` (a sub-agent raised it) are relayed to the phone. A
+permission sheet that shows only a tool name and an input blob is a sheet the
+user cannot actually decide on.
+
 ## The event loop must not hang shutdown
 
 `Session.close()` races the SDK's iterator against a close signal rather than
@@ -89,6 +105,21 @@ the first client attaches.
 Session ids are derived from the workspace path (`sessionIdForPath`), so a
 phone that bookmarked a session reconnects to the same one after a restart.
 
+## An async handler must never reject
+
+The daemon is the only thing holding the Claude session open. If an HTTP or
+WebSocket handler throws, the rejection is unhandled and Node ends the
+process — taking the session and every approval waiting on it with it.
+
+Both handlers are wrapped, and the one place that used to throw is
+`decodeURIComponent`: `decodeURIComponent('%ZZ')` raises a `URIError`, so a
+malformed path used to be a remote, unauthenticated way to kill the daemon. It
+is a 400 now.
+
+The rule generalises: **anything that can throw from a request path returns an
+error response instead of throwing.** The same applies to the SDK callbacks
+`session.ts` drives.
+
 ## Authentication is not optional
 
 The daemon requires a bearer token on every connection, including on a home
@@ -99,6 +130,31 @@ The token is generated once, stored in `<dataDir>/host.json` with mode 0600,
 and handed to the phone in the **URL fragment** (`#t=...`), which browsers
 never send to the server. It must not appear in a query string, a log line, or
 an `Authorization` URL.
+
+`CCR_TOKEN` is the better way to supply one than `--token`: a token on the
+command line is visible to every local user with `ps`.
+
+The comparison hashes both sides first. `timingSafeEqual` needs two buffers of
+the same length, and returning early on a length mismatch would leak the
+token's length through the response time.
+
+**A browser cannot set headers on a WebSocket**, so a phone cannot use the
+`Authorization` header on the session socket — and putting the token in the
+URL is exactly what the rule above forbids. `bearerToken()` (in
+`@ccr/protocol`) therefore also accepts the token in the `Sec-WebSocket-
+Protocol` header, as a second entry after `ccr-v1`. `attachWebSocketServer`
+selects `ccr-v1` and never echoes the token back — a browser that offered
+subprotocols fails the connection if the server selects none.
+
+## Nothing in a request path may reject
+
+An HTTP or WebSocket handler that throws produces an unhandled rejection,
+and an unhandled rejection ends the process. The process is the only thing
+holding the Claude session — and every approval waiting on it — open.
+
+Both handlers in `server.ts` are wrapped. The audit appends in the control
+handler go through `#audit()`, which catches its own failures. If you add a
+call that is fire-and-forget, give it the same treatment.
 
 The discovery endpoint (`GET /ccr/v1/sessions`) is authenticated too: it
 reveals the user's project paths.

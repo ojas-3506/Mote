@@ -14,6 +14,9 @@ derive the types from them.
 | `errors.ts` | the error codes a `res { ok: false }` may carry |
 | `events.ts` | every event the host publishes, and the `evt` frame envelope |
 | `control.ts` | every control message a client may send |
+| `suggestions.ts` | `filterRemotelyGrantable` — which "always allow" suggestions a phone may grant |
+| `sessions.ts` | the session list a host offers a phone (`GET /ccr/v1/sessions`) |
+| `auth.ts` | how a peer proves who it is — `Authorization` header, or WebSocket subprotocol |
 | `frames.ts` | the frame envelope, constructors, guards |
 
 ## Rules for changing this package
@@ -27,8 +30,11 @@ exist.
 forward-compatibility rule in `EVENT-PROTOCOL.md` §9. Don't switch anything to
 `.strict()` — a peer sending an extra field must not kill the connection.
 
-**Unknown *event types* are ignored by clients, but unknown `req.kind`s are
-rejected** with `unknown_kind`. Requests have effects; events don't.
+**A frame that does not parse ends the connection**, and a `req` with a `kind`
+the peer does not implement is one of those. The strict union is what gives an
+exhaustive `switch (frame.kind)`; a catch-all variant would take that away.
+`unknown_kind` is reserved for a peer that can parse a request and dispatch it
+(the relay, once it exists). See `EVENT-PROTOCOL.md` §9.
 
 **Additive changes don't bump `v`.** New event types, new optional fields, new
 error codes — all fine at `v: 1`. Breaking changes bump `v`, and the relay has
@@ -55,6 +61,22 @@ Two things in here exist specifically to make a mistake hard:
 `PermissionUpdateSchema` mirrors the SDK's `PermissionUpdate[]` exactly. The
 client must send the SDK's own suggestions back unmodified — it never builds
 rule strings itself.
+
+## Two ways to prove who you are
+
+`bearerToken()` in `auth.ts` accepts a token in either place:
+
+- **The `Authorization` header.** What the host daemon, the CLI, and the relay
+  use. It is the only option outside a browser.
+- **The WebSocket subprotocol.** A browser cannot set headers on a WebSocket —
+  the API has no way to do it — so a phone would otherwise have to put the
+  token in the URL, where it lands in access logs. The token rides in
+  `Sec-WebSocket-Protocol` as a second entry, and the server echoes back only
+  `ccr-v1`.
+
+Both are headers. Neither puts a token in a URL. A server that accepts
+subprotocols **must** select `WS_PROTOCOL` in `handleProtocols` — a browser
+that offered subprotocols fails the connection if the server selects none.
 
 ## Zod 4
 

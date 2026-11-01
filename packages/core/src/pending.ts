@@ -29,9 +29,15 @@ export interface PendingRequestsOptions<T> {
    */
   timeoutMs?: number;
   /**
-   * The value a timed-out request resolves with. Must be the deny verdict.
+   * The deny verdict. Used when a request times out, and when the
+   * bookkeeping that must precede a verdict fails.
    */
   onTimeout: () => T;
+  /**
+   * Called when a request ends without being answered — a timeout, or a
+   * `failAll` — so the caller can drop any per-request state it kept for it.
+   */
+  onEnded?: (id: string) => void;
 }
 
 interface Entry<T> {
@@ -43,10 +49,12 @@ export class PendingRequests<T> {
   #entries = new Map<string, Entry<T>>();
   #timeoutMs: number;
   #onTimeout: () => T;
+  #onEnded: ((id: string) => void) | undefined;
 
   constructor(options: PendingRequestsOptions<T>) {
     this.#timeoutMs = options.timeoutMs ?? 15 * 60 * 1000;
     this.#onTimeout = options.onTimeout;
+    this.#onEnded = options.onEnded;
   }
 
   get size(): number {
@@ -72,6 +80,7 @@ export class PendingRequests<T> {
     return new Promise<Verdict<T>>((resolve) => {
       const timer = setTimeout(() => {
         this.#entries.delete(id);
+        this.#onEnded?.(id);
         resolve({ value: this.#onTimeout(), by: 'timeout' });
       }, this.#timeoutMs);
       // The timer is deliberately *not* unref'd. The deny-on-timeout is a
@@ -89,14 +98,44 @@ export class PendingRequests<T> {
   /**
    * Answer a pending request.
    *
+   * `beforeRelease` runs after the request has been claimed and before the
+   * verdict is delivered. The host uses it to write the audit record, because
+   * an approval that outruns its own record defeats the purpose of the
+   * record — if the machine dies in between, code ran that nothing accounts
+   * for.
+   *
+   * The claim happens *before* the hook runs, so a second verdict for the same
+   * id cannot release the request while the first is still recording it. The
+   * timeout timer is cleared at the same moment: once a request is claimed it
+   * is being decided, and letting the timeout fire underneath a half-written
+   * record would leave the two disagreeing about what happened.
+   *
+   * If the hook throws, the request resolves as denied and the error is
+   * rethrown. A record that cannot be written must not let an unrecorded
+   * approval through, and must not leave the agent blocked.
+   *
    * Returns `false` when the id is unknown, already answered, or timed out.
    * The caller answers the client with `no_such_request` in that case.
    */
-  settle(id: string, value: T): boolean {
+  async settle(
+    id: string,
+    value: T,
+    beforeRelease?: () => Promise<void>,
+  ): Promise<boolean> {
     const entry = this.#entries.get(id);
     if (!entry) return false;
     clearTimeout(entry.timer);
     this.#entries.delete(id);
+
+    if (beforeRelease) {
+      try {
+        await beforeRelease();
+      } catch (error) {
+        entry.resolve({ value: this.#onTimeout(), by: 'host' });
+        throw error;
+      }
+    }
+
     entry.resolve({ value, by: 'phone' });
     return true;
   }
@@ -110,8 +149,9 @@ export class PendingRequests<T> {
   failAll(value: T): number {
     const entries = [...this.#entries.entries()];
     this.#entries.clear();
-    for (const [, entry] of entries) {
+    for (const [id, entry] of entries) {
       clearTimeout(entry.timer);
+      this.#onEnded?.(id);
       entry.resolve({ value, by: 'host' });
     }
     return entries.length;

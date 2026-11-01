@@ -47,6 +47,13 @@ export interface HostConfig {
   maxReplay: number;
   /** Whether to serve the built PWA from the same port. */
   serveApp: boolean;
+  /**
+   * A Claude Code transcript to resume instead of starting a new session.
+   *
+   * One transcript belongs to one workspace, so this is only meaningful for
+   * a host that exposes a single workspace.
+   */
+  resume?: string;
   logLevel: LogLevel;
 }
 
@@ -60,13 +67,24 @@ export function defaultDataDir(): string {
   return join(homedir(), '.local', 'share', 'ccr');
 }
 
+/**
+ * The bearer token from the environment.
+ *
+ * `CCR_TOKEN` is the better way to supply one: a token passed as
+ * `--token` shows up in the process's command line, and every local user
+ * can read that with `ps`.
+ */
+export function tokenFromEnv(): string {
+  return process.env.CCR_TOKEN ?? '';
+}
+
 export function defaultConfig(): HostConfig {
   return {
     port: DEFAULT_PORT,
     bind: DEFAULT_BIND,
     dataDir: defaultDataDir(),
     workspaces: [],
-    token: '',
+    token: tokenFromEnv(),
     permissionMode: 'default',
     permissionTimeoutMs: DEFAULT_PERMISSION_TIMEOUT_MS,
     maxReplay: 10_000,
@@ -102,8 +120,12 @@ Options:
   --bind <addr>           Bind address (default ${DEFAULT_BIND})
   --cwd <path>            Workspace to expose; repeat for more (default: cwd)
   --data-dir <path>       Where tokens and logs live (default: ${defaultDataDir()})
-  --token <token>         Use a fixed bearer token instead of the stored one
+  --token <token>         Use a fixed bearer token instead of the stored one.
+                           Prefer the CCR_TOKEN environment variable: a token
+                           on the command line is visible to every local user.
   --model <id>            Model to start sessions with
+  --resume <sessionId>    Resume a Claude Code transcript instead of starting
+                           a new session (single workspace only)
   --permission-mode <m>   default | acceptEdits | plan | dontAsk | auto
   --permission-timeout <minutes>
                            Fail an unanswered approval closed after N minutes
@@ -167,6 +189,13 @@ export function parseArgs(argv: string[]): ParsedArgs {
         config.model = next(i, '--model');
         i++;
         break;
+      case '--resume': {
+        const resume = next(i, '--resume');
+        if (!resume) throw new Error('--resume needs a session id');
+        config.resume = resume;
+        i++;
+        break;
+      }
       case '--permission-mode': {
         const mode = next(i, '--permission-mode');
         if (!['default', 'acceptEdits', 'plan', 'dontAsk', 'auto'].includes(mode)) {

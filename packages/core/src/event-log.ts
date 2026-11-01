@@ -95,7 +95,11 @@ export class JsonlEventLog implements EventLog {
   }
 
   async #load(): Promise<void> {
-    await mkdir(this.#dir, { recursive: true });
+    // Owner-only. This log holds the whole transcript — prompt text, tool
+    // input, command output — which is the most sensitive thing ccr writes
+    // down. The audit log hashes its inputs and can be looser; this one
+    // cannot.
+    await mkdir(this.#dir, { recursive: true, mode: 0o700 });
     const { readdir } = await import('node:fs/promises');
     const entries = await readdir(this.#dir);
     for (const entry of entries) {
@@ -141,7 +145,12 @@ export class JsonlEventLog implements EventLog {
     const seq = this.#nextSeq.get(sessionId) ?? 1;
     this.#nextSeq.set(sessionId, seq + 1);
     const stored: StoredEvent = { seq, sessionId, ts, event };
-    await appendFile(this.#file(sessionId), `${JSON.stringify(stored)}\n`, 'utf8');
+    // The mode applies when the file is created. An existing file keeps
+    // whatever mode it already had.
+    await appendFile(this.#file(sessionId), `${JSON.stringify(stored)}\n`, {
+      encoding: 'utf8',
+      mode: 0o600,
+    });
     const list = this.#events.get(sessionId);
     if (list) list.push(stored);
     else this.#events.set(sessionId, [stored]);

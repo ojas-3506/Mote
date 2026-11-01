@@ -37,6 +37,12 @@ async function main(): Promise<void> {
     config.workspaces = [{ path: resolve(process.cwd()) }];
   }
 
+  // A transcript belongs to one workspace. Resuming it while exposing
+  // several would attach the same conversation to the wrong directory.
+  if (config.resume && config.workspaces.length > 1) {
+    throw new Error('--resume applies to a single workspace; expose one with --cwd');
+  }
+
   const logger = createLogger({ level: config.logLevel, name: 'ccrd' });
   const versions = readHostVersions();
 
@@ -57,6 +63,7 @@ async function main(): Promise<void> {
     model: config.model,
     permissionMode: config.permissionMode,
     permissionTimeoutMs: config.permissionTimeoutMs,
+    resume: config.resume,
   });
 
   const server = new HostServer({
@@ -70,6 +77,7 @@ async function main(): Promise<void> {
     sdkVersion: versions.sdkVersion,
     token: identity.token,
     appDir: defaultAppDir(),
+    serveApp: config.serveApp,
   });
 
   const { port } = await server.listen(config.port, config.bind);

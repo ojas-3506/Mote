@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { mkdtemp, rm } from 'node:fs/promises';
+import { connect } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
@@ -9,7 +10,8 @@ import { MemoryEventLog, SessionStream, silentLogger } from '@ccr/core';
 import type { StoredEvent } from '@ccr/core';
 import { AuditLog, hashInput } from '../src/audit.js';
 import { parseArgs } from '../src/config.js';
-import { sessionIdForPath } from '../src/session-manager.js';
+import { HostServer } from '../src/server.js';
+import { SessionManager, sessionIdForPath } from '../src/session-manager.js';
 import { Session, type QueryFactory } from '../src/session.js';
 
 /**
@@ -463,4 +465,212 @@ test('the CLI refuses a permission mode that is not remotely settable', () => {
 
 test('the CLI refuses an unknown flag', () => {
   assert.throws(() => parseArgs(['--nope']), /unknown option/);
+});
+
+test('the CLI reads a resume id', () => {
+  const { config } = parseArgs(['--resume', 'sess_abc']);
+  assert.equal(config.resume, 'sess_abc');
+});
+
+// ── The server ─────────────────────────────────────────────────────────────
+
+/**
+ * A server with one workspace and no Claude process behind it.
+ *
+ * Sessions start lazily, so nothing spawns unless a client attaches — which
+ * is what keeps these tests from starting a real Claude Code session.
+ */
+async function serverHarness(serveApp = true): Promise<{
+  server: HostServer;
+  port: number;
+  cleanup: () => Promise<void>;
+}> {
+  const dir = await mkdtemp(join(tmpdir(), 'ccr-host-test-'));
+  const stream = new SessionStream(new MemoryEventLog());
+  const audit = new AuditLog(join(dir, 'audit.log'));
+  const sessions = new SessionManager({
+    workspaces: [{ path: dir }],
+    stream,
+    logger: silentLogger,
+    audit,
+    hostId: 'host_1',
+    claudeVersion: '2.1.312',
+  });
+  const server = new HostServer({
+    sessions,
+    stream,
+    logger: silentLogger,
+    audit,
+    hostId: 'host_1',
+    hostName: 'test-host',
+    claudeVersion: '2.1.312',
+    sdkVersion: '0.3.312',
+    token: 'test-token',
+    appDir: join(dir, 'app'),
+    serveApp,
+  });
+  const { port } = await server.listen(0, '127.0.0.1');
+  return {
+    server,
+    port,
+    cleanup: async () => {
+      await server.close();
+      await rm(dir, { recursive: true, force: true });
+    },
+  };
+}
+
+test('a malformed URL is a 400, not a dead daemon', async () => {
+  const h = await serverHarness();
+  try {
+    // `decodeURIComponent('%ZZ')` throws. Unhandled, that ends the process —
+    // and the process is what holds the Claude session open.
+    const response = await fetch(`http://127.0.0.1:${h.port}/%ZZ`);
+    assert.equal(response.status, 400);
+
+    // Still serving.
+    const health = await fetch(`http://127.0.0.1:${h.port}/healthz`);
+    assert.equal(health.status, 200);
+    assert.equal(await health.text(), 'ok');
+  } finally {
+    await h.cleanup();
+  }
+});
+
+test('a malformed session id in the WebSocket path does not kill the daemon', async () => {
+  const h = await serverHarness();
+  try {
+    await new Promise<void>((resolve) => {
+      const socket = connect(h.port, '127.0.0.1', () => {
+        socket.write(
+          'GET /ccr/v1/session/%ZZ?after=0 HTTP/1.1\r\n' +
+            'Host: 127.0.0.1\r\n' +
+            'Authorization: Bearer test-token\r\n' +
+            'Upgrade: websocket\r\n' +
+            'Connection: Upgrade\r\n' +
+            'Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\n' +
+            'Sec-WebSocket-Version: 13\r\n\r\n',
+        );
+      });
+      socket.on('data', () => {});
+      socket.on('error', () => {});
+      socket.on('close', () => resolve());
+      setTimeout(() => {
+        socket.destroy();
+        resolve();
+      }, 2_000);
+    });
+
+    const health = await fetch(`http://127.0.0.1:${h.port}/healthz`);
+    assert.equal(health.status, 200, 'the daemon must survive a malformed session id');
+  } finally {
+    await h.cleanup();
+  }
+});
+
+test('the server does not serve the PWA when it is turned off', async () => {
+  const h = await serverHarness(false);
+  try {
+    const response = await fetch(`http://127.0.0.1:${h.port}/`);
+    assert.equal(response.status, 404);
+  } finally {
+    await h.cleanup();
+  }
+});
+
+// ── The audit log ──────────────────────────────────────────────────────────
+
+test('a verdict for an unknown request is not recorded', async () => {
+  const h = await harness();
+  try {
+    assert.equal(
+      await h.session.resolvePermission('nope', { behavior: 'allow' }, 'device_1'),
+      false,
+    );
+    const entries = await h.audit.read();
+    assert.equal(
+      entries.length,
+      0,
+      'a refused verdict must not be recorded as an approval',
+    );
+  } finally {
+    await h.cleanup();
+  }
+});
+
+test('a late allow after a timeout is not recorded as an approval', async () => {
+  const h = await harness({ permissionTimeoutMs: 30 });
+  try {
+    const canUseTool = h.fake.options?.canUseTool;
+    assert.ok(canUseTool);
+    await canUseTool('Bash', { command: 'ls' }, toolOptions());
+
+    await new Promise((resolve) => setTimeout(resolve, 60));
+    const request = (await h.events()).find((e) => e.event.type === 'permission.request');
+    const id = request?.event.type === 'permission.request' ? request.event.data.requestId : '';
+
+    assert.equal(await h.session.resolvePermission(id, { behavior: 'allow' }, 'device_1'), false);
+
+    const entries = await h.audit.read();
+    assert.equal(
+      entries.filter((e) => e.decision === 'allow').length,
+      0,
+      'the log must not claim an approval that never applied',
+    );
+  } finally {
+    await h.cleanup();
+  }
+});
+
+test('a request that timed out is recorded as a denial', async () => {
+  const h = await harness({ permissionTimeoutMs: 30 });
+  try {
+    const canUseTool = h.fake.options?.canUseTool;
+    assert.ok(canUseTool);
+    await canUseTool('Bash', { command: 'ls' }, toolOptions());
+
+    const entries = await h.audit.read();
+    const denial = entries.find((e) => e.decision === 'deny');
+    assert.ok(denial, 'a timed-out request must leave a denial in the log');
+    assert.equal(denial.by, 'timeout');
+    assert.equal(denial.toolName, 'Bash');
+  } finally {
+    await h.cleanup();
+  }
+});
+
+// ── What the phone gets to see ─────────────────────────────────────────────
+
+test('the permission request carries the SDK context about why it is asking', async () => {
+  const h = await harness();
+  try {
+    const canUseTool = h.fake.options?.canUseTool;
+    assert.ok(canUseTool);
+
+    const pending = canUseTool(
+      'Bash',
+      { command: 'cat /etc/shadow' },
+      toolOptions({
+        blockedPath: '/etc/shadow',
+        decisionReason: 'outside the allowed directories',
+        agentID: 'agent_7',
+      }),
+    );
+
+    await new Promise((resolve) => setImmediate(resolve));
+    const request = (await h.events()).find((e) => e.event.type === 'permission.request');
+    assert.ok(request?.event.type === 'permission.request');
+    assert.equal(request.event.data.blockedPath, '/etc/shadow');
+    assert.equal(request.event.data.decisionReason, 'outside the allowed directories');
+    assert.equal(request.event.data.agentID, 'agent_7');
+
+    await h.session.resolvePermission(
+      request.event.data.requestId,
+      { behavior: 'deny' },
+      'device_1',
+    );
+    await pending;
+  } finally {
+    await h.cleanup();
+  }
 });

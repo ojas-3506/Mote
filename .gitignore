@@ -1,11 +1,34 @@
+# Dependencies
 node_modules/
+
+# Build output
 dist/
 build/
 .next/
-*.log
-.DS_Store
+*.tsbuildinfo
+
+# The host's data directory.
+#
+# Not hypothetical: `ccrd --data-dir .` puts the bearer token in
+# `host.json` and every session's full transcript — prompts, tool input,
+# command output — in `sessions/`. None of that belongs in a repository.
+host.json
+pairing.txt
+sessions/
+
+# Environment
 .env
 .env.*
 !.env.example
-*.tsbuildinfo
+
+# Logs and coverage
+*.log
 coverage/
+
+# Editors and operating systems
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+*~

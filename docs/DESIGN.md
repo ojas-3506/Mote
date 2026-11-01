@@ -275,8 +275,13 @@ relay can be rewritten in Go — the protocol is language-neutral by design.
 
 ## 11. Verified API reference
 
-Extracted from `@anthropic-ai/claude-agent-sdk@0.3.311` type definitions and the
+Extracted from `@anthropic-ai/claude-agent-sdk@0.3.312` type definitions and the
 Claude Code CLI reference (v2.1.280).
+
+**The SDK is the source of truth, not this document.** It moves. Check
+`node_modules/@anthropic-ai/claude-agent-sdk/sdk.d.ts` before writing anything
+that touches it, and believe `packages/host/CLAUDE.md` over this section when
+the two disagree.
 
 ```ts
 type CanUseTool = (
@@ -285,13 +290,17 @@ type CanUseTool = (
   options: {
     signal: AbortSignal;
     suggestions?: PermissionUpdate[];
-    blockedPath?: string;
+    blockedPath?: string;             // the path that triggered the request
     mcpServer?: { name: string; source: string };
-    decisionReason?: string;
+    decisionReason?: string;          // why the SDK decided to ask
     title?: string;        // full prompt sentence — use as primary text
     displayName?: string;  // short label for buttons
     description?: string;
     defaultToNo?: boolean; // MUST open the prompt on decline
+    suppressAlwaysAllowRule?: boolean; // the ask must not offer a persistent rule
+    toolUseID: string;     // required
+    requestId: string;     // required
+    agentID?: string;      // set when a sub-agent raised the request
   },
 ) => Promise<PermissionResult>;
 
@@ -302,10 +311,17 @@ type PermissionResult =
   | { behavior: 'deny'; message: string; interrupt?: boolean; toolUseID?: string;
       decisionClassification?: PermissionDecisionClassification };
 
-type PermissionUpdate = {
-  type: 'addRules';
-  rules: { toolName: string; ruleContent?: string }[];
-};
+// A six-variant union, not a single shape. Every variant carries a
+// `behavior` (allow / deny / ask) and a `destination` (where the rule is
+// written) — both matter, and the wire format mirrors it exactly.
+type PermissionUpdate =
+  | { type: 'addRules' | 'replaceRules' | 'removeRules';
+      rules: { toolName: string; ruleContent?: string }[];
+      behavior: 'allow' | 'deny' | 'ask';
+      destination: 'userSettings' | 'projectSettings' | 'localSettings' | 'session' | 'cliArg' }
+  | { type: 'setMode'; mode: PermissionMode; destination: PermissionUpdateDestination }
+  | { type: 'addDirectories' | 'removeDirectories'; directories: string[];
+      destination: PermissionUpdateDestination };
 
 type PermissionMode = 'default' | 'acceptEdits' | 'bypassPermissions' | 'plan' | 'dontAsk' | 'auto';
 
@@ -335,6 +351,9 @@ type SDKUserMessage = {
 };
 ```
 
+`Options.permissionPrompts` must be `'host'`. With `'none'`, `canUseTool` is
+never called and anything that would prompt is denied immediately.
+
 CLI flags verified present in v2.1.280: `--remote-control`, `--channels`,
 `--permission-prompt-tool`, `--permission-prompts`, `--permission-mode`,
 `--input-format`, `--output-format`, `--include-partial-messages`, `--forward-subagent-text`,
@@ -342,13 +361,18 @@ CLI flags verified present in v2.1.280: `--remote-control`, `--channels`,
 
 ## 12. Milestones
 
-**M0 — LAN-only, no relay, no auth.**
+**M0 — LAN-only, no relay, no auth.** *(mostly done)*
 `ccrd` serves the PWA over the LAN. No pairing, no event log, no push. Purpose: get a
 real UI on a real phone and learn what actually gets used. This is where the
 permission sheet design gets validated — watching yourself tap "Allow" on a phone
 tells you things a design doc can't.
 
-**M1 — Relay, pairing, push.**
+What exists: the daemon, the wire protocol, the event log and cursor replay, the
+permission flow, and the app's transport — hash-token auth, the WebSocket, the
+session picker. What doesn't: the chat view, and **the permission sheet**, which
+is the point of M0.
+
+**M1 — Relay, pairing, push.** *(next)*
 Outbound WSS from host, relay with a SQLite event log, QR/short-code pairing,
 per-device tokens, Web Push. Cursor replay. This is the "anyone can start using"
 version.
@@ -362,6 +386,11 @@ The v2 envelope from §8, key derivation from the pairing secret, encrypted push
 
 **M4 — Multi-tenant relay.**
 Per-user namespaces, rate limiting, quotas, abuse controls.
+
+**The order is not the order above.** The app is being built before the relay
+on purpose: the app is what validates the design, and the relay only scales a
+design that has already been used by a human on a phone. The protocol does not
+change between them.
 
 ## 13. Open questions
 

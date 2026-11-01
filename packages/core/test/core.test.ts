@@ -91,8 +91,8 @@ test('a pending request resolves exactly once', async () => {
   const pending = new PendingRequests<string>({ timeoutMs: 10_000, onTimeout: () => 'deny' });
   const answer = pending.request('req_1');
 
-  assert.equal(pending.settle('req_1', 'allow'), true);
-  assert.equal(pending.settle('req_1', 'allow'), false, 'a replayed verdict is rejected');
+  assert.equal(await pending.settle('req_1', 'allow'), true);
+  assert.equal(await pending.settle('req_1', 'allow'), false, 'a replayed verdict is rejected');
 
   const verdict = await answer;
   assert.equal(verdict.value, 'allow');
@@ -101,7 +101,70 @@ test('a pending request resolves exactly once', async () => {
 
 test('a verdict for an unknown request is rejected', async () => {
   const pending = new PendingRequests<string>({ timeoutMs: 10_000, onTimeout: () => 'deny' });
-  assert.equal(pending.settle('never-existed', 'allow'), false);
+  assert.equal(await pending.settle('never-existed', 'allow'), false);
+});
+
+test('the request is claimed before the bookkeeping runs, so a second verdict cannot release it', async () => {
+  const pending = new PendingRequests<string>({ timeoutMs: 10_000, onTimeout: () => 'deny' });
+  const answer = pending.request('req_1');
+
+  let release: (() => void) | undefined;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+
+  const first = pending.settle('req_1', 'allow', () => gate);
+  // The second verdict arrives while the first is still writing its record.
+  assert.equal(await pending.settle('req_1', 'deny'), false, 'the request is already claimed');
+
+  release?.();
+  assert.equal(await first, true);
+
+  const verdict = await answer;
+  assert.equal(verdict.value, 'allow', 'the first verdict is the one that applies');
+});
+
+test('the bookkeeping runs before the verdict is delivered', async () => {
+  const pending = new PendingRequests<string>({ timeoutMs: 10_000, onTimeout: () => 'deny' });
+  const answer = pending.request('req_1');
+
+  const order: string[] = [];
+  const settled = pending.settle('req_1', 'allow', async () => {
+    order.push('recorded');
+  });
+  const verdict = await answer;
+  order.push('delivered');
+
+  assert.equal(await settled, true);
+  assert.deepEqual(order, ['recorded', 'delivered']);
+});
+
+test('a failed bookkeeping hook denies the request rather than releasing it', async () => {
+  const pending = new PendingRequests<string>({ timeoutMs: 10_000, onTimeout: () => 'deny' });
+  const answer = pending.request('req_1');
+
+  await assert.rejects(
+    pending.settle('req_1', 'allow', async () => {
+      throw new Error('the audit log could not be written');
+    }),
+  );
+
+  const verdict = await answer;
+  assert.equal(verdict.value, 'deny', 'an unrecordable approval must not be delivered');
+  assert.equal(verdict.by, 'host');
+});
+
+test('a request that ends without an answer tells the caller to drop its state', async () => {
+  const ended: string[] = [];
+  const pending = new PendingRequests<string>({
+    timeoutMs: 10,
+    onTimeout: () => 'deny',
+    onEnded: (id) => ended.push(id),
+  });
+
+  const answer = pending.request('req_1');
+  await answer;
+  assert.deepEqual(ended, ['req_1']);
 });
 
 test('an unanswered request times out as a denial', async () => {
@@ -116,7 +179,7 @@ test('a verdict arriving after the timeout is rejected, not applied late', async
   const answer = pending.request('req_1');
 
   await answer;
-  assert.equal(pending.settle('req_1', 'allow'), false, 'a late allow must not apply');
+  assert.equal(await pending.settle('req_1', 'allow'), false, 'a late allow must not apply');
 });
 
 test('a disconnect fails every pending request closed', async () => {

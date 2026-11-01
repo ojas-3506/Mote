@@ -17,7 +17,8 @@
   ],
   "scripts": {
     "build": "tsc -b",
-    "typecheck": "tsc -b --noEmit"
+    "typecheck": "tsc -b --noEmit",
+    "test": "tsx --test test/*.test.ts"
   },
   "dependencies": {
     "zod": "^4.6.7"

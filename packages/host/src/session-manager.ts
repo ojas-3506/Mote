@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import { basename } from 'node:path';
+import type { SessionSummary } from '@ccr/protocol';
 import type { Logger, SessionStream } from '@ccr/core';
 import type { AuditLog } from './audit.js';
 import { Session } from './session.js';
@@ -11,15 +12,12 @@ import type { WorkspaceConfig } from './config.js';
  * One session per configured workspace. The session id is derived from the
  * workspace path so it survives a restart — a phone that bookmarked a session
  * reconnects to the same one.
+ *
+ * `SessionSummary` itself is defined in `@ccr/protocol`: the phone parses the
+ * same shape, and it is a wire shape like any other.
  */
 
-export interface SessionSummary {
-  sessionId: string;
-  label: string;
-  cwd: string;
-  status: 'starting' | 'ready' | 'closed';
-  pendingApprovals: number;
-}
+export type { SessionSummary };
 
 export interface SessionManagerOptions {
   workspaces: WorkspaceConfig[];
@@ -31,6 +29,8 @@ export interface SessionManagerOptions {
   model?: string;
   permissionMode?: 'default' | 'acceptEdits' | 'plan' | 'dontAsk' | 'auto';
   permissionTimeoutMs?: number;
+  /** A Claude Code transcript to resume instead of starting a new session. */
+  resume?: string;
 }
 
 /**
@@ -69,6 +69,7 @@ export class SessionManager {
         model: options.model,
         permissionMode: options.permissionMode,
         permissionTimeoutMs: options.permissionTimeoutMs,
+        resume: options.resume,
       });
       this.#sessions.set(id, session);
     }

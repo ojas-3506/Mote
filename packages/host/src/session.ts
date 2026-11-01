@@ -7,7 +7,7 @@ import {
   type PermissionUpdate,
   type Priority,
 } from '@ccr/protocol';
-import { PendingRequests, type Logger, type SessionStream, type Verdict } from '@ccr/core';
+import { PendingRequests, type Logger, type SessionStream, type Verdict, type VerdictSource } from '@ccr/core';
 import { AuditLog, hashInput } from './audit.js';
 import { SdkEventMapper } from './sdk-events.js';
 
@@ -137,11 +137,18 @@ export class Session {
       sessionId: options.id,
       hostId: options.hostId,
       claudeVersion: options.claudeVersion,
+      resumed: options.resume !== undefined,
     });
     this.#pending = new PendingRequests<PermissionAnswer>({
       timeoutMs: options.permissionTimeoutMs ?? 15 * 60 * 1000,
       // Unanswered approvals fail closed. Never allow, never hang.
       onTimeout: () => denyAnswer('The approval timed out.'),
+      // A request that ends without an answer leaves nothing behind: the
+      // per-request state is dropped so it can't be applied to a later
+      // prompt, and it doesn't accumulate for the life of the session.
+      onEnded: (id) => {
+        this.#pendingMeta.delete(id);
+      },
     });
     this.#closedSignal = new Promise((resolve) => {
       this.#resolveClosed = resolve;
@@ -294,10 +301,15 @@ export class Session {
    * Returns `false` when the request is unknown, already answered, or timed
    * out — the caller answers the client with `no_such_request`.
    *
-   * The audit entry is written *before* this resolves, so an approval can
-   * never reach the agent without having been recorded. The audit log's whole
-   * purpose is to prove what was approved; a verdict that outruns its own
-   * record defeats that.
+   * The audit entry is written *before* the verdict is delivered, so an
+   * approval can never reach the agent without having been recorded. The
+   * audit log's whole purpose is to prove what was approved; a verdict that
+   * outruns its own record defeats that.
+   *
+   * A verdict for a request that is no longer pending is **not** recorded at
+   * all. It was refused, and recording it would put an "allow" in the log for
+   * a tool call that was actually denied — the one thing the log exists to
+   * prevent someone from having to guess about.
    */
   async resolvePermission(
     requestId: string,
@@ -319,19 +331,34 @@ export class Session {
 
     const meta = this.#pendingMeta.get(requestId);
 
-    await this.#audit.append({
-      ts: Date.now(),
-      sessionId: this.id,
-      actor,
-      kind: 'permission.resolve',
-      toolName: meta?.toolName,
-      toolUseId: meta?.toolUseId,
-      decision: answer.behavior,
-      always: answer.behavior === 'allow' ? answer.always : undefined,
-      inputHash: meta?.inputHash,
-    });
+    let settled: boolean;
+    try {
+      settled = await this.#pending.settle(requestId, answer, async () => {
+        await this.#audit.append({
+          ts: Date.now(),
+          sessionId: this.id,
+          actor,
+          kind: 'permission.resolve',
+          toolName: meta?.toolName,
+          toolUseId: meta?.toolUseId,
+          decision: answer.behavior,
+          always: answer.behavior === 'allow' ? answer.always : undefined,
+          inputHash: meta?.inputHash,
+          by: 'phone',
+        });
+      });
+    } catch (error) {
+      // The record could not be written, so the approval was refused and the
+      // agent has already been denied. Say so rather than leaving the caller
+      // to wonder why the request vanished.
+      this.#logger.error('audit write failed; the approval was denied', {
+        requestId,
+        error: String(error),
+      });
+      this.#pendingMeta.delete(requestId);
+      return false;
+    }
 
-    const settled = this.#pending.settle(requestId, answer);
     if (!settled) return false;
 
     this.#pendingMeta.delete(requestId);
@@ -354,11 +381,12 @@ export class Session {
       ? []
       : filterRemotelyGrantable(options.suggestions ?? []);
 
-    this.#pendingMeta.set(requestId, {
+    const meta: PendingMeta = {
       toolName,
       toolUseId: options.toolUseID,
       inputHash: hashInput(input),
-    });
+    };
+    this.#pendingMeta.set(requestId, meta);
 
     await this.#stream.publish(this.id, {
       type: 'permission.request',
@@ -377,11 +405,26 @@ export class Session {
         defaultToNo: options.defaultToNo ?? true,
         suggestions,
         mcpServer: options.mcpServer,
+        // The context the SDK gives about *why* it is asking. Dropping it
+        // would leave the phone showing a bare tool name and an input blob.
+        blockedPath: options.blockedPath,
+        decisionReason: options.decisionReason,
+        agentID: options.agentID,
       },
     });
 
     const verdict = await this.#awaitVerdict(requestId, options.signal);
     const answer = verdict.value;
+
+    // A verdict a person gave is recorded by `resolvePermission`, before the
+    // verdict is delivered. A verdict *nobody* gave — a timeout, a
+    // disconnect, an interrupted turn — is recorded here, because the log
+    // has to show what was not approved as well as what was. A tool call
+    // that timed out is a tool call that did not run, and the user should
+    // not have to infer that from a missing line.
+    if (verdict.by !== 'phone') {
+      await this.#recordDenial(requestId, meta, verdict.by);
+    }
 
     await this.#stream.publish(this.id, {
       type: 'permission.resolved',
@@ -418,6 +461,34 @@ export class Session {
   };
 
   /**
+   * Record a denial that no person chose.
+   *
+   * A failed write here must not break the turn: the tool has already been
+   * refused, and the agent is waiting on the callback's return value.
+   */
+  async #recordDenial(
+    requestId: string,
+    meta: PendingMeta,
+    by: VerdictSource,
+  ): Promise<void> {
+    try {
+      await this.#audit.append({
+        ts: Date.now(),
+        sessionId: this.id,
+        actor: 'host',
+        kind: 'permission.resolve',
+        toolName: meta.toolName,
+        toolUseId: meta.toolUseId,
+        decision: 'deny',
+        inputHash: meta.inputHash,
+        by,
+      });
+    } catch (error) {
+      this.#logger.error('audit write failed', { requestId, error: String(error) });
+    }
+  }
+
+  /**
    * Wait for a verdict, racing the turn's abort signal.
    *
    * An interrupted turn must not leave the approval hanging — the agent is
@@ -440,7 +511,7 @@ export class Session {
     if (verdict.by === 'host') {
       // The abort won the race. Drop the pending entry so a late answer from
       // the phone is rejected rather than applied to a later prompt.
-      this.#pending.settle(requestId, verdict.value);
+      await this.#pending.settle(requestId, verdict.value);
     }
 
     return verdict;

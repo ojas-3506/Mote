@@ -3,9 +3,14 @@
 **An open, self-hostable mobile client for your Claude Code session.** Keep the agent and
 your code on your own machine; drive it from your phone over any network.
 
-> **Status: the host daemon works.** `ccrd` owns a real Claude Code session, relays
-> tool approvals to a phone, and serves the PWA on the local network. The relay and
-> the phone client are next. See [docs/DESIGN.md](docs/DESIGN.md) for the plan.
+> **Status: the host daemon works, and the phone can connect.** `ccrd` owns a real
+> Claude Code session, relays tool approvals, and serves the PWA on the local
+> network. The app's transport is done end to end. The chat view and the
+> permission sheet are next — see [docs/DESIGN.md](docs/DESIGN.md) for the plan.
+>
+> **This is an early project.** There is no release, no installer, and no
+> relay. The permission sheet is not built, and the app deliberately has no
+> way to approve a tool call yet.
 
 ---
 
@@ -84,6 +89,17 @@ internet, because approving a tool call is running code.
 `node scripts/smoke.mjs` drives the whole thing end to end against a real
 Claude Code session.
 
+### Working on it
+
+```bash
+npm run dev      # the daemon on :8787 and the Vite dev server on :5173
+```
+
+The app always talks to its own origin, so the dev server proxies `/ccr/v1/*`
+to the daemon and the app code is the same in both modes. Open
+`http://<your-lan-ip>:5173/#t=<token>` — the token is the same one the daemon
+printed.
+
 ---
 
 ## Documentation
@@ -94,18 +110,34 @@ Claude Code session.
   types, cursor semantics, control messages.
 - **[docs/SECURITY.md](docs/SECURITY.md)** — threat model, pairing, token handling, the
   permission surface, and sandboxing.
+- **[SECURITY.md](SECURITY.md)** — how to report a vulnerability.
+- **[CONTRIBUTING.md](CONTRIBUTING.md)** — how to build, test, and propose a change.
 
-## Planned layout
+Each package carries its own `CLAUDE.md` describing what it holds and the rules
+that apply inside it.
+
+## Layout
 
 ```
 packages/
   protocol/   shared event schema + zod validation (the source of truth)
+  core/       the event log, fan-out, pending approvals
   host/       ccrd — the daemon that owns the Claude Code session
-  relay/      the WebSocket relay, event log, and push dispatch
   app/        the PWA (React + Vite)
+  relay/      the WebSocket relay, event log, and push dispatch   ← next
   cli/        ccr — install, pair, inspect
 ```
 
+The dependency graph is a straight line: `protocol` ← `core` ← {`host`,
+`relay`, `cli`} and `protocol` ← `app`. Nothing imports backwards.
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md). If you touch anything to do with
+permissions, read [docs/SECURITY.md](docs/SECURITY.md) first — it is the
+product, not a footnote.
+
 ## License
 
-TBD — will be Apache-2.0 or MIT.
+Apache-2.0. See [LICENSE](LICENSE).
+

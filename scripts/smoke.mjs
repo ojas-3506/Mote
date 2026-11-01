@@ -35,9 +35,10 @@ const daemon = spawn(
     '--bind', '127.0.0.1',
     '--data-dir', dataDir,
     '--cwd', workspace,
-    '--token', TOKEN,
   ],
-  { cwd: repoRoot, env: process.env, stdio: ['ignore', 'pipe', 'pipe'] },
+  // The token goes through the environment, not `--token`: a token on the
+  // command line is visible to every local user with `ps`.
+  { cwd: repoRoot, env: { ...process.env, CCR_TOKEN: TOKEN }, stdio: ['ignore', 'pipe', 'pipe'] },
 );
 
 let sessionId = null;
