@@ -9,6 +9,7 @@ import {
 } from '@mote/protocol';
 import { PendingRequests, type Logger, type SessionStream, type Verdict, type VerdictSource } from '@mote/core';
 import { AuditLog, hashInput } from './audit.js';
+import { readGitStatus } from './git.js';
 import { SdkEventMapper } from './sdk-events.js';
 
 /**
@@ -210,6 +211,12 @@ export class Session {
     });
 
     this.#consuming = this.#consume();
+
+    // The phone cannot read the repository, so the working tree is published
+    // for it. This happens as the session starts rather than when the SDK
+    // reports in: the CLI can take a while to come up, and the branch name
+    // is useful before the first reply arrives.
+    await this.#publishGitStatus();
   }
 
   async #consume(): Promise<void> {
@@ -229,6 +236,10 @@ export class Session {
             this.#claudeSessionId = event.data.claudeSessionId;
           }
           await this.#stream.publish(this.id, event);
+          if (event.type === 'session.idle') {
+            // A turn may have changed the tree.
+            await this.#publishGitStatus();
+          }
         }
       }
     } catch (error) {
@@ -459,6 +470,18 @@ export class Session {
     };
     return result;
   };
+
+  /**
+   * Publish the working tree.
+   *
+   * The phone is a browser and cannot see the repository, so this is the
+   * only view of the branch and the changed files it will ever have.
+   */
+  async #publishGitStatus(): Promise<void> {
+    const status = await readGitStatus(this.cwd);
+    if (!status) return;
+    await this.#stream.publish(this.id, { type: 'git.status', data: status });
+  }
 
   /**
    * Record a denial that no person chose.

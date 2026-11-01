@@ -1,20 +1,19 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { EvtFrame, SessionSummary } from '@mote/protocol';
 import { SessionClient, type ConnectionState } from '../lib/client';
 import { deviceId } from '../lib/auth';
+import { emptyModel, reduce } from '../lib/session-model';
+import { Chat } from './Chat';
+import { GitStatusStrip } from './GitStatus';
+import { PermissionCard } from './PermissionCard';
 
 /**
  * A live session.
  *
- * For now this is a **transport proof**: every event the host publishes,
- * in order, with the cursor that a reconnect would resume from, and a
- * composer that sends a prompt and stops a turn. The chat view, the tool
- * rows, and the permission sheet come next — the shape of this screen is
- * deliberately temporary.
- *
- * One thing is *not* temporary: the permission request below. It is shown,
- * but it cannot be answered from here. A half-built approve button is worse
- * than no approve button — see the note on the card.
+ * The events arrive as an append-only, ordered stream; the session model
+ * folds them into the transcript; this screen draws the model. The split
+ * matters: the fold is testable without a browser, and a reconnect that
+ * replays a gap produces the same screen rather than a different one.
  */
 export function SessionView({
   session,
@@ -32,6 +31,8 @@ export function SessionView({
   const [error, setError] = useState<string | undefined>();
   const clientRef = useRef<SessionClient | null>(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
+
+  const model = useMemo(() => events.reduce(reduce, emptyModel()), [events]);
 
   useEffect(() => {
     const client = new SessionClient({
@@ -56,7 +57,7 @@ export function SessionView({
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ block: 'end' });
-  }, [events]);
+  }, [model]);
 
   const send = async () => {
     const text = draft.trim();
@@ -90,18 +91,24 @@ export function SessionView({
           <h1>{session.label}</h1>
           <p className="muted small">{session.cwd}</p>
         </div>
+        <GitStatusStrip git={model.git} />
         <span className={`badge ${state === 'open' ? 'ok' : ''}`}>{state}</span>
       </header>
 
       {detail && <p className="notice">{detail}</p>}
       {error && <p className="notice error">{error}</p>}
+      {model.error && <p className="notice error">{model.error}</p>}
 
-      <div className="events">
-        {events.map((event) => (
-          <EventRow key={`${event.seq}`} event={event} />
-        ))}
-        <div ref={bottomRef} />
-      </div>
+      {model.pending && <PermissionCard pending={model.pending} />}
+
+      <Chat model={model} />
+
+      {model.working && (
+        <p className="working">
+          <span className="dot" aria-hidden="true" />
+          Working…
+        </p>
+      )}
 
       <form
         className="composer"
@@ -124,101 +131,7 @@ export function SessionView({
           Send
         </button>
       </form>
+      <div ref={bottomRef} />
     </main>
   );
-}
-
-function EventRow({ event }: { event: EvtFrame }) {
-  if (event.type === 'permission.request') {
-    return <PermissionCard event={event} />;
-  }
-
-  return (
-    <div className="event">
-      <span className="event-type">{event.type}</span>
-      <span className="event-body">{preview(event) || '—'}</span>
-    </div>
-  );
-}
-
-/**
- * A permission request, shown but not answerable.
- *
- * The sheet is the next piece of work, and it has rules that are easy to get
- * subtly wrong (`defaultToNo` is per request; there is no one-key approve
- * path). Until those are implemented there is deliberately **no approve
- * button here at all** — an approval the phone can grant by accident is the
- * exact failure this project exists to prevent. The request will time out
- * and be denied, which is the safe direction.
- */
-function PermissionCard({ event }: { event: Extract<EvtFrame, { type: 'permission.request' }> }) {
-  const { data } = event;
-  return (
-    <div className="event permission">
-      <span className="event-type">permission.request</span>
-      <strong>{data.title}</strong>
-      {data.description && <p className="muted small">{data.description}</p>}
-      {data.blockedPath && (
-        <p className="muted small">path: {data.blockedPath}</p>
-      )}
-      {data.decisionReason && (
-        <p className="muted small">reason: {data.decisionReason}</p>
-      )}
-      {data.agentID && <p className="muted small">agent: {data.agentID}</p>}
-      <pre className="input">{JSON.stringify(data.input, null, 2)}</pre>
-      <p className="notice">
-        The approval sheet is not built yet. This request will time out and be
-        denied.
-      </p>
-    </div>
-  );
-}
-
-/**
- * A one-line summary of an event, for the transport-proof list.
- *
- * `event.data` is read inside each case rather than hoisted into a variable:
- * the payload type is only known per event type, and the narrowing comes
- * from switching on `event.type`.
- */
-function preview(event: EvtFrame): string {
-  switch (event.type) {
-    case 'user.message':
-      return event.data.text;
-    case 'assistant.delta':
-    case 'assistant.message':
-    case 'assistant.thinking':
-      return event.data.text;
-    case 'tool.call':
-      return `${event.data.displayName} — ${summariseInput(event.data.input)}`;
-    case 'tool.result':
-      return event.data.output;
-    case 'session.started':
-      return `${event.data.cwd} · ${event.data.model}${event.data.resumed ? ' · resumed' : ''}`;
-    case 'session.idle':
-      return event.data.reason;
-    case 'session.error':
-      return event.data.message;
-    case 'permission.resolved':
-      return `${event.data.behavior} (${event.data.by})`;
-    case 'permission.request':
-      return event.data.title;
-    case 'file.diff':
-      return event.data.path;
-    case 'git.status':
-      return `${event.data.branch} ↑${event.data.ahead} ↓${event.data.behind}`;
-    case 'session.resumed':
-      return event.data.claudeSessionId;
-  }
-}
-
-/** The most telling field of a tool input, if there is one. */
-function summariseInput(input: Record<string, unknown>): string {
-  for (const key of ['command', 'file_path', 'path', 'url', 'pattern', 'query']) {
-    const value = input[key];
-    if (typeof value === 'string') return value;
-  }
-
-  const text = JSON.stringify(input);
-  return text.length > 240 ? `${text.slice(0, 240)}…` : text;
 }

@@ -294,8 +294,229 @@ button.ghost {
   overflow-wrap: anywhere;
 }
 
-.event.permission {
-  border-color: var(--warn);
+/* ── The transcript ──────────────────────────────────────────────────── */
+
+.empty {
+  padding: 24px 8px;
+  text-align: center;
+}
+
+.message {
+  max-width: 85%;
+  border-radius: 12px;
+  padding: 10px 14px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.message p {
+  margin: 0;
+}
+
+.message.user {
+  align-self: flex-end;
+  background: var(--accent);
+  color: var(--bg);
+}
+
+.message.assistant {
+  align-self: flex-start;
+  background: var(--panel);
+  border: 1px solid var(--line);
+}
+
+.message.thinking {
+  align-self: flex-start;
+  background: transparent;
+  border: 1px dashed var(--line);
+  color: var(--muted);
+  font-size: 0.875rem;
+  padding: 4px 12px;
+}
+
+.message.thinking summary {
+  cursor: pointer;
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.message.thinking p {
+  margin-top: 8px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.attachments {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  font-size: 0.8125rem;
+}
+
+/* ── Tool calls ─────────────────────────────────────────────────────── */
+
+.tool {
+  align-self: stretch;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.tool-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  border-radius: 0;
+  color: inherit;
+  font: inherit;
+  font-weight: 400;
+  padding: 10px 12px;
+  cursor: pointer;
+}
+
+.tool-head:active {
+  background: var(--panel-2);
+}
+
+.tool-status {
+  flex-shrink: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--muted);
+}
+
+.tool-status.running {
+  background: var(--warn);
+}
+
+.tool-status.ok {
+  background: var(--accent);
+}
+
+.tool-status.failed {
+  background: var(--danger);
+}
+
+.tool-name {
+  flex-shrink: 0;
+  font-weight: 600;
+  font-size: 0.875rem;
+}
+
+.tool-summary {
+  flex: 1;
+  min-width: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.75rem;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tool-duration {
+  flex-shrink: 0;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.tool-body {
+  padding: 0 12px 12px;
+}
+
+/* ── The permission card ────────────────────────────────────────────── */
+
+.permission {
+  border: 1px solid var(--warn);
+  border-radius: 12px;
+  padding: 14px;
+  background: var(--panel);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.permission-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.permission-title {
+  font-weight: 600;
+}
+
+.permission-facts {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px 10px;
+  margin: 0;
+  font-size: 0.8125rem;
+}
+
+.permission-facts dt {
+  color: var(--muted);
+}
+
+.permission-facts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+/* ── The working indicator ──────────────────────────────────────────── */
+
+.working {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--muted);
+}
+
+.working .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 0.25;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* ── Git ────────────────────────────────────────────────────────────── */
+
+.git {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.git-branch {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--text);
+}
+
+.git-count {
+  white-space: nowrap;
 }
 
 .input {
